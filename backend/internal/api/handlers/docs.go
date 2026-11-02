@@ -105,6 +105,11 @@ func buildRouteList() []APIDoc {
 				`"line_direction":"both","save_snapshots":true,"record_mode":"event",` +
 				`"prebuffer_sec":10,"postbuffer_sec":20,"cooldown_sec":30}`},
 
+		// --- События самой камеры ---
+		{Method: "GET", Path: "/api/v1/cameras/{id}/camera-events", Summary: "Настройки приёма событий бортовой детекции камеры", Auth: true, Tags: []string{"detection"}},
+		{Method: "PUT", Path: "/api/v1/cameras/{id}/camera-events", Summary: "Сохранить настройки приёма событий камеры", Auth: true, Tags: []string{"detection"},
+			Body: `{"enabled":true,"source":"auto","motion":true,"objects":true,"min_interval_sec":10}`},
+
 		// --- Настройки сервера ---
 		{Method: "GET", Path: "/api/v1/settings", Summary: "Глобальные настройки: хранилище записей и снимков", Auth: true, Tags: []string{"settings"}},
 		{Method: "PATCH", Path: "/api/v1/settings", Summary: "Обновить настройки сервера (частично)", Auth: true, Tags: []string{"settings"},

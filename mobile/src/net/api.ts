@@ -461,6 +461,7 @@ export class ApiClient {
     page?: number;
     pageSize?: number;
     trigger?: string;
+    search?: string;
   }): Promise<RecordingsPage> {
     const response = await this.http.get('/recordings', {
       params: {
@@ -468,6 +469,7 @@ export class ApiClient {
         page: params.page ?? 1,
         page_size: params.pageSize ?? 20,
         trigger: params.trigger || undefined,
+        search: params.search || undefined,
       },
     });
     if (response.status !== 200) {

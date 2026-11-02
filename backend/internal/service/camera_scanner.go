@@ -1730,12 +1730,15 @@ func (s *CameraScanner) probeMajestic(ctx context.Context, ip, username, passwor
 	// Прошивка
 	parts := []string{}
 	if v0, ok := config["video0"].(map[string]interface{}); ok {
-		if size, ok := v0["size"].(string); ok {
+		// Пустой size — не ошибка камеры: часть прошивок Majestic отдаёт
+		// конфиг без фактического разрешения. Раньше пустая строка всё
+		// равно попадала в список, и в поле прошивки появлялось « sub:».
+		if size, ok := v0["size"].(string); ok && strings.TrimSpace(size) != "" {
 			parts = append(parts, size)
 		}
 	}
 	if v1, ok := config["video1"].(map[string]interface{}); ok {
-		if size, ok := v1["size"].(string); ok {
+		if size, ok := v1["size"].(string); ok && strings.TrimSpace(size) != "" {
 			parts = append(parts, "sub:"+size)
 		}
 	}

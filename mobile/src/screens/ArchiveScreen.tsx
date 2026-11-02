@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import Video from 'react-native-video';
@@ -18,6 +19,24 @@ import type { Camera, Recording } from '../types';
 
 /** Сколько записей запрашивать за раз. */
 const PAGE_SIZE = 20;
+
+/**
+ * Причины записи для фильтра.
+ *
+ * Значения совпадают с trigger_type в базе: фильтрация идёт на сервере,
+ * и придумывать свои названия нельзя — иначе выбор в телефоне перестанет
+ * совпадать с тем, что видно в веб-интерфейсе.
+ */
+const TRIGGERS: Array<{ value: string | null; label: string }> = [
+  { value: null, label: 'Все' },
+  { value: 'object', label: 'Объекты' },
+  { value: 'line', label: 'Пересечение' },
+  { value: 'face', label: 'Лица' },
+  { value: 'plate', label: 'Номера' },
+  { value: 'acs', label: 'СКУД' },
+  { value: 'manual', label: 'Вручную' },
+  { value: 'always', label: 'Постоянно' },
+];
 
 /** Приводит длительность в секундах к виду «5:03». */
 function formatDuration(seconds: number): string {
@@ -76,6 +95,13 @@ export default function ArchiveScreen({
     camera?.id ?? null,
   );
   const [cameras, setCameras] = useState<Camera[]>([]);
+  // Причина записи: объект, номер, пересечение линии, СКУД и т. п.
+  // Пусто — все причины. Сервер фильтрует по trigger_type, поэтому
+  // список не приходится сужать на телефоне.
+  const [triggerFilter, setTriggerFilter] = useState<string | null>(null);
+  // Поиск по расшифровке события: номер машины, имя человека, класс.
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(
     async (targetPage: number, silent = false) => {
@@ -84,6 +110,8 @@ export default function ArchiveScreen({
       try {
         const result = await client.listRecordings({
           cameraId: cameraFilter ?? undefined,
+          trigger: triggerFilter ?? undefined,
+          search: searchQuery || undefined,
           page: targetPage,
           pageSize: PAGE_SIZE,
         });
@@ -102,7 +130,7 @@ export default function ArchiveScreen({
         setRefreshing(false);
       }
     },
-    [client, cameraFilter],
+    [client, cameraFilter, triggerFilter, searchQuery],
   );
 
   // Список камер нужен для фильтра. Если экран открыт из карточки, список
@@ -128,6 +156,16 @@ export default function ArchiveScreen({
   useEffect(() => {
     void load(1);
   }, [load]);
+
+  // Поиск с задержкой: запрос на каждую букву заставлял бы сервер
+  // перечитывать архив на каждом нажатии, а результат всё равно
+  // показывался бы с миганием списка.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   /**
    * Адрес файла записи.
@@ -282,6 +320,51 @@ export default function ArchiveScreen({
         </ScrollView>
       )}
 
+      {/* Поиск по расшифровке события: номер, имя человека, класс.
+          Сервер ищет по trigger_detail, поэтому запрос не зависит от
+          того, сколько записей уже загружено на телефон. */}
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.searchInput}
+          value={searchInput}
+          onChangeText={setSearchInput}
+          placeholder="Номер, имя или класс объекта"
+          placeholderTextColor={colors.textMuted}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
+        />
+        {searchInput ? (
+          <Pressable
+            style={styles.searchClear}
+            onPress={() => setSearchInput('')}
+          >
+            <Text style={styles.searchClearText}>×</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+      >
+        {TRIGGERS.map((item) => {
+          const active = triggerFilter === item.value;
+          return (
+            <Pressable
+              key={item.value ?? 'all'}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setTriggerFilter(item.value)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       {error && (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
@@ -385,6 +468,32 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs },
 
   filters: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    paddingVertical: spacing.md,
+  },
+  searchClear: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  searchClearText: {
+    color: colors.textSecondary,
+    fontSize: 20,
+    lineHeight: 22,
+  },
   chip: {
     borderWidth: 1,
     borderColor: colors.border,

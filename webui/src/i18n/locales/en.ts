@@ -35,6 +35,24 @@ export default {
   noRightsHint:
     'Your account does not have the right to do this. Please contact the server administrator.',
 
+  cameraEventsPanel: {
+    title: 'Events from the camera itself',
+    hint: 'The camera can report what it found itself: motion, people, vehicles. It is faster and cheaper, but it does not replace server detection — the camera and our detector run independently, and duplicate events are merged.',
+    enabled: 'Accept camera events',
+    source: 'Source',
+    sourceAuto: 'Detect automatically',
+    interval: 'Merge repeats, seconds',
+    motion: 'Motion without a class',
+    objects: 'Objects: people, vehicles, animals',
+    openipcHint: 'On OpenIPC, objects appear after the NPU model is installed and the camera owner accepts the EULA in its web interface.',
+    save: 'Save',
+    saving: 'Saving…',
+    saved: 'Camera event settings saved',
+    saveFailed: 'Could not save the settings',
+    loading: 'Loading settings…',
+    loadFailed: 'Could not load camera event settings',
+  },
+
   usersPage: {
     title: 'Users',
     hint: 'An account decides what a person sees and can do. A role is a preset of rights: after picking a role the checkboxes can still be adjusted.',

@@ -227,6 +227,26 @@ func (r *CameraRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 	return err
 }
 
+// UpdateSettingsKey записывает один ключ в JSONB-поле settings.
+//
+// Отдельный метод, а не Update всей камеры: настройка приёма событий
+// меняет только свой блок, и полная перезапись карточки затронула бы
+// потоки и учётные данные, которые к этой правке отношения не имеют.
+// COALESCE нужен для старых записей, где settings ещё NULL.
+func (r *CameraRepo) UpdateSettingsKey(ctx context.Context, id uuid.UUID, key string, value any) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.Exec(ctx, `
+		UPDATE cameras
+		SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object($2::text, $3::jsonb),
+		    updated_at = now()
+		WHERE id = $1
+	`, id, key, string(raw))
+	return err
+}
+
 // ListForStatusCheck возвращает минимальный набор полей для проверки доступности.
 // ListForStatusCheck возвращает камеры для монитора статуса.
 //

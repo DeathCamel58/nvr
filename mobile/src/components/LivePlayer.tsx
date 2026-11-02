@@ -28,6 +28,7 @@ export default function LivePlayer({
   baseUrl,
   micCodec,
   onTransport,
+  onFailed,
 }: {
   client: ApiClient | null;
   cameraId: string;
@@ -45,6 +46,12 @@ export default function LivePlayer({
   micCodec?: 'pcmu' | 'opus';
   /** Сообщает экрану, каким транспортом пошло видео (для подписи). */
   onTransport?: (transport: 'webrtc' | 'hls' | null) => void;
+  /**
+   * Все транспорты не поднялись. Экран может попробовать другой поток:
+   * основной у части камер слишком тяжёлый или упирается в лимит
+   * RTSP-сессий, а дополнительный в это же время работает.
+   */
+  onFailed?: () => void;
 }) {
   const [transport, setTransport] = useState<'webrtc' | 'hls'>('webrtc');
   const [session, setSession] = useState<LiveSession | null>(null);
@@ -98,6 +105,16 @@ export default function LivePlayer({
     return `${full}${separator}token=${encodeURIComponent(token)}`;
   }, [hlsPath, token, baseUrl]);
 
+  // Смена камеры или потока — новый счёт попыток HLS.
+  //
+  // Без сброса автоматический переход с основного потока на дополнительный
+  // унаследовал бы исчерпанные попытки: первый же сбой нового плейлиста
+  // сразу считался бы окончательным, и картинка не появилась бы вовсе.
+  useEffect(() => {
+    hlsRetriesRef.current = 0;
+    setHlsReloadKey((value) => value + 1);
+  }, [cameraId, sub]);
+
   /**
    * Повтор HLS при ошибке.
    *
@@ -109,7 +126,12 @@ export default function LivePlayer({
     if (hlsRetriesRef.current < 3) {
       hlsRetriesRef.current += 1;
       setTimeout(() => setHlsReloadKey((value) => value + 1), 1500);
+      return;
     }
+    // Повторы исчерпаны. Раньше здесь просто оставался чёрный экран с
+    // подписью HLS, и оператор не понимал, что поток не идёт. Теперь
+    // экран может переключиться на дополнительный поток.
+    onFailed?.();
   };
 
   return (

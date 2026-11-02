@@ -40,6 +40,10 @@ export default function LiveScreen({
   const [audio, setAudio] = useState<AudioStatus | null>(null);
   const [talking, setTalking] = useState(false);
   const [ptzError, setPtzError] = useState<string | null>(null);
+  // Автоматический переход на дополнительный поток уже выполнялся.
+  // Ограничение нужно, чтобы при отказе обоих потоков экран не
+  // переключался между ними бесконечно.
+  const [fellBack, setFellBack] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +91,27 @@ export default function LiveScreen({
   }, [stream, kind]);
 
   const switchStream = () => {
+    setFellBack(false);
+    setError(null);
     setKind((value) => (value === 'sub' ? 'main' : 'sub'));
+  };
+
+  /**
+   * Основной поток не поднялся ни по WebRTC, ни по HLS.
+   *
+   * У части камер основной поток 4К и упирается в лимит RTSP-сессий:
+   * камера отвечает «453 Live memory budget is full». Дополнительный
+   * поток в этот момент обычно работает, и оператору важнее увидеть
+   * картинку, чем остаться с чёрным экраном.
+   */
+  const handlePlayerFailed = () => {
+    if (kind === 'main' && !fellBack) {
+      setFellBack(true);
+      setKind('sub');
+      setError(
+        'Основной поток не поднялся — открыт дополнительный. Проверьте лимит RTSP-сессий камеры.',
+      );
+    }
   };
 
   return (
@@ -101,6 +125,7 @@ export default function LiveScreen({
         baseUrl={current?.baseUrl ?? ''}
         micCodec={talking ? 'pcmu' : undefined}
         onTransport={setTransport}
+        onFailed={handlePlayerFailed}
       />
 
       <View style={styles.info}>

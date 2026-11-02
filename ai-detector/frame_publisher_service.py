@@ -47,6 +47,32 @@ FAILURE_LOG_EVERY = 30
 FALLBACK_AFTER = 5
 
 
+def internal_stream_url(cam: dict, sub: bool) -> str:
+    """Адрес потока внутри go2rtc вместо прямого подключения к камере.
+
+    Зачем это нужно. Камеры ограничивают число одновременных RTSP-сессий,
+    и OpenIPC отвечает `453 Live memory budget is full`, когда лимит
+    исчерпан. До этой правки publisher открывал СВОИ сессии к камере:
+    отдельно на кадры детекции, отдельно на быстрый поток номеров и
+    отдельно на снимки. Вместе с записью архива и просмотром в браузере
+    это упиралось в лимит камеры, и новый зритель не мог подключиться —
+    поток «долго грузился» или не запускался вовсе.
+
+    go2rtc уже держит поток камеры и умеет раздавать его многим
+    потребителям. Поэтому publisher читает его внутренний поток:
+    сессий к камере больше не прибавляется.
+
+    Пустой GO2RTC_RTSP означает «работать напрямую»: так остаётся
+    работоспособной установка без медиасервера (например, при отладке).
+    """
+    base = os.getenv("GO2RTC_RTSP", "").strip()
+    if not base:
+        return ""
+    base = base.removeprefix("rtsp://").rstrip("/")
+    name = cam["id"] if not sub else f"{cam['id']}_sub"
+    return f"rtsp://{base}/{name}"
+
+
 def build_rtsp_url(stream_url: str, username: str, password: str) -> str:
     """Подставляет логин/пароль в RTSP-URL, если их там ещё нет.
 
@@ -415,11 +441,16 @@ class FramePublisher:
 
         # Основной поток: если его нет в базе, берём основной адрес камеры —
         # для событий лучше подойдёт любой поток, чем отсутствие снимка.
-        raw = cam.get("main_stream") or cam.get("stream")
-        if not raw:
-            await self._publish_snapshot(cam_id, req_id, None)
-            return
-        url = build_rtsp_url(raw, cam["username"], cam["password"])
+        # Источник — внутренний поток go2rtc: он не занимает ещё одну
+        # сессию камеры, а лимит сессий у OpenIPC общий с записью и
+        # просмотром.
+        url = internal_stream_url(cam, sub=False)
+        if not url:
+            raw = cam.get("main_stream") or cam.get("stream")
+            if not raw:
+                await self._publish_snapshot(cam_id, req_id, None)
+                return
+            url = build_rtsp_url(raw, cam["username"], cam["password"])
         width = self.snapshot_width if self.snapshot_width else 0
 
         jpeg = None
@@ -513,12 +544,17 @@ class FramePublisher:
         # Проверено на камере .87: в субпотоке номер занимает 25 px и OCR
         # читать нечего, в основном потоке — около 120 px, и номер читается.
         source = os.getenv("PLATE_SOURCE_STREAM", "sub").strip().lower()
-        if source == "main" and cam.get("main_stream"):
-            url = build_rtsp_url(cam["main_stream"], cam["username"], cam["password"])
-            width = self.plate_main_width
-        else:
-            url = build_rtsp_url(cam["stream"], cam["username"], cam["password"])
-            width = self.plate_width
+        use_main = source == "main" and bool(cam.get("main_stream"))
+        # Сначала внутренний поток go2rtc — он не открывает ещё одну
+        # сессию к камере. Прямой адрес остаётся запасным вариантом для
+        # установки без медиасервера.
+        url = internal_stream_url(cam, sub=not use_main)
+        if not url:
+            if use_main:
+                url = build_rtsp_url(cam["main_stream"], cam["username"], cam["password"])
+            else:
+                url = build_rtsp_url(cam["stream"], cam["username"], cam["password"])
+        width = self.plate_main_width if use_main else self.plate_width
         crop = zone_box(cam.get("plate_zone") or [])
         if crop is None:
             logger.warning(
@@ -590,10 +626,15 @@ class FramePublisher:
         # детектор запрашивает отдельно и только на время события
         # (см. _snapshot_loop) — постоянной нагрузки «на всякий случай» нет.
         source = os.getenv("DETECT_SOURCE_STREAM", "sub").strip().lower()
-        if source == "main" and cam.get("main_stream"):
-            url = build_rtsp_url(cam["main_stream"], cam["username"], cam["password"])
-        else:
-            url = build_rtsp_url(cam["stream"], cam["username"], cam["password"])
+        use_main = source == "main" and bool(cam.get("main_stream"))
+        # Внутренний поток go2rtc: он уже подключён к камере и раздаёт
+        # кадры многим потребителям, поэтому не занимает новую сессию.
+        url = internal_stream_url(cam, sub=not use_main)
+        if not url:
+            if use_main:
+                url = build_rtsp_url(cam["main_stream"], cam["username"], cam["password"])
+            else:
+                url = build_rtsp_url(cam["stream"], cam["username"], cam["password"])
         # Адрес основного потока — запасной вариант.
         #
         # Второго потока может не быть вовсе: камера .81 на запрос
@@ -601,10 +642,9 @@ class FramePublisher:
         # совсем. Одна такая камера стоит нескольких ядер процессора, но
         # камера без детекции хуже, поэтому при устойчивых отказах
         # возвращаемся к основному потоку.
-        if source != "main" and cam.get("main_stream"):
+        main_url = internal_stream_url(cam, sub=False)
+        if not main_url and source != "main" and cam.get("main_stream"):
             main_url = build_rtsp_url(cam["main_stream"], cam["username"], cam["password"])
-        else:
-            main_url = ""
         # Не логируем URL целиком — в нём пароль
         safe_url = re.sub(r"//[^@/]+@", "//***@", url)
 

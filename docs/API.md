@@ -155,6 +155,46 @@ DELETE /api/v1/cameras/{id}
 
 Ответ `204`. Пути удаляются из медиасервера.
 
+### Приём событий от самой камеры
+
+События бортовой детекции: ONVIF PullPoint, Hikvision ISAPI или
+WebSocket аналитики OpenIPC. Источник выбирается автоматически, если
+`source` равно `auto`.
+
+```http
+GET /api/v1/cameras/{id}/camera-events
+```
+
+```json
+{
+  "enabled": false,
+  "source": "auto",
+  "motion": true,
+  "objects": true,
+  "min_interval_sec": 10
+}
+```
+
+```http
+PUT /api/v1/cameras/{id}/camera-events
+Content-Type: application/json
+
+{"enabled": true, "source": "auto", "motion": true,
+ "objects": true, "min_interval_sec": 10}
+```
+
+| Поле | Значение |
+|---|---|
+| `enabled` | принимать события этой камеры |
+| `source` | `auto`, `onvif`, `hikvision`, `openipc` |
+| `motion` | события движения без класса объекта |
+| `objects` | события с классом: человек, машина, животное |
+| `min_interval_sec` | склейка повторов одного класса с одного места |
+
+События публикуются в ту же шину, что и детекции собственного
+`ai-detector`, поэтому попадают в журнал, архив, уведомления, вебхуки
+и поток тревог без отдельной настройки.
+
 ---
 
 ## Потоки

@@ -27,9 +27,20 @@ type CameraService struct {
 	// mediaAPI — адрес API медиасервера go2rtc со схемой,
 	// например "http://host.docker.internal:1984".
 	mediaAPI string
-	client   *http.Client
-	ssh      *CameraSSH
-	ptz      *PTZServiceClient
+	// go2rtcRTSP — адрес RTSP медиасервера без схемы ("localhost:8554").
+	//
+	// Запись и съёмка клипов берут поток отсюда, а не с камеры напрямую.
+	// Камеры ограничивают число RTSP-сессий, и несколько собственных
+	// подключений (запись, буфер событий, детекция, просмотр) упирались
+	// в лимит: камера отвечала «453 Live memory budget is full», и новый
+	// зритель не мог открыть поток. go2rtc держит одно подключение и
+	// раздаёт его всем потребителям.
+	//
+	// Пусто — запись идёт напрямую с камеры (установка без медиасервера).
+	go2rtcRTSP string
+	client     *http.Client
+	ssh        *CameraSSH
+	ptz        *PTZServiceClient
 	// externalRTSP публикует потоки под внешними адресами для сторонних
 	// систем. Может быть nil, если внешний доступ не настроен.
 	externalRTSP *ExternalRTSPService
@@ -68,6 +79,16 @@ func NewCameraService(repo *postgres.CameraRepo, mediaAPI string) *CameraService
 // без внешнего контура (например, в тестах).
 func (s *CameraService) WithExternalRTSP(svc *ExternalRTSPService) *CameraService {
 	s.externalRTSP = svc
+	return s
+}
+
+// WithGo2rtcRTSP задаёт адрес RTSP медиасервера для записи.
+//
+// Без него запись подключается к камере напрямую. С ним — читает
+// внутренний поток go2rtc, и число сессий к камере не растёт от того,
+// что камеру одновременно пишут, смотрят и анализируют.
+func (s *CameraService) WithGo2rtcRTSP(addr string) *CameraService {
+	s.go2rtcRTSP = strings.TrimSuffix(strings.TrimPrefix(addr, "rtsp://"), "/")
 	return s
 }
 
@@ -410,6 +431,11 @@ func (s *CameraService) StreamURLForRecord(ctx context.Context, cameraID uuid.UU
 	cam, err := s.repo.GetByID(ctx, cameraID)
 	if err != nil {
 		return "", err
+	}
+	// Внутренний поток go2rtc: одна сессия к камере на всех потребителей.
+	// Имя потока — идентификатор камеры (см. RegisterStreams).
+	if s.go2rtcRTSP != "" {
+		return fmt.Sprintf("rtsp://%s/%s", s.go2rtcRTSP, cam.ID), nil
 	}
 	source := cam.MainStream
 	if source == "" {

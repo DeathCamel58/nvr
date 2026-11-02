@@ -10,6 +10,7 @@ import LivePlayer from '../components/LivePlayer'
 import EditCameraModal from '../components/EditCameraModal'
 import PTZPanel from '../components/PTZPanel'
 import DetectionSettingsPanel from '../components/DetectionSettingsPanel'
+import CameraNativeEventsPanel from '../components/CameraNativeEventsPanel'
 import RecordingSettingsPanel from '../components/RecordingSettingsPanel'
 import DetectionOverlay from '../components/DetectionOverlay'
 import AudioSettingsPanel from '../components/AudioSettingsPanel'
@@ -651,6 +652,12 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
             {tab === 'detection' && (
               <div>
                 <DetectionSettingsPanel cameraId={camera.id} snapshotUrl={snapshotUrl} zoneSnapshotUrl={zoneSnapshotUrl} />
+                {/* События самой камеры: отдельный источник, а не часть
+                    настроек нашей детекции. У камеры Detector и NVR
+                    ищут одно и то же независимо друг от друга. */}
+                <div style={{ marginTop: 24 }}>
+                  <CameraNativeEventsPanel cameraId={camera.id} />
+                </div>
                 <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
                   {/* Режим съёмки стоит рядом с зоной детекции намеренно:
                       зона говорит, ГДЕ искать, а режим — чтобы номер был

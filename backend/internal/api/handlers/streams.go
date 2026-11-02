@@ -312,7 +312,8 @@ func (h *StreamHandler) ProxyHLS(w http.ResponseWriter, r *http.Request) {
 	// Ограничиваем ожидание upstream: если камера не отдаёт кадры,
 	// go2rtc держит запрос открытым бесконечно (HLS-муксер не готов).
 	// Без этого клиент тоже висит и запросы накапливаются.
-	ctx, cancel := context.WithTimeout(r.Context(), upstreamTimeout)
+	deadline := time.Now().Add(upstreamTimeout)
+	ctx, cancel := context.WithDeadline(r.Context(), deadline)
 	defer cancel()
 
 	resp, err := client.Do(req.WithContext(ctx))
@@ -384,6 +385,50 @@ func (h *StreamHandler) ProxyHLS(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "read upstream failed"})
 			return
 		}
+
+		// go2rtc отвечает 200 с ПУСТЫМ телом, пока HLS-муксер не готов:
+		// камера ещё подключается или не отдаёт кадры. Пустой плейлист
+		// мобильный плеер считает началом воспроизведения и ждёт вечно —
+		// со стороны это выглядит как «поток не запускается».
+		//
+		// Поэтому ждём готовый плейлист до общего таймаута. Клиенту
+		// лучше подождать несколько секунд и получить видео, чем сразу
+		// получить ошибку и уйти в повтор.
+		if strings.HasSuffix(filePath, "index.m3u8") && !playlistReady(body) {
+			resp.Body.Close()
+			for time.Now().Before(deadline) {
+				select {
+				case <-r.Context().Done():
+					return
+				case <-time.After(400 * time.Millisecond):
+				}
+
+				retryResp, retryErr := client.Do(req.WithContext(ctx))
+				if retryErr != nil {
+					continue
+				}
+				if retryResp.StatusCode >= 400 {
+					retryResp.Body.Close()
+					continue
+				}
+				body, retryErr = io.ReadAll(retryResp.Body)
+				retryResp.Body.Close()
+				if retryErr != nil {
+					continue
+				}
+				if playlistReady(body) {
+					break
+				}
+			}
+
+			if !playlistReady(body) {
+				writeJSON(w, http.StatusGatewayTimeout, map[string]string{
+					"error": "stream not ready: camera is not sending video data",
+				})
+				return
+			}
+		}
+
 		w.WriteHeader(resp.StatusCode)
 		w.Write(rewritePlaylist(body, tokenStr))
 		return
@@ -396,6 +441,14 @@ func (h *StreamHandler) ProxyHLS(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+// playlistReady сообщает, что go2rtc отдал настоящий плейлист, а не пустое тело.
+//
+// Пустой ответ 200 — штатное состояние, пока муксер не готов: по одному
+// лишь коду ответа его не отличить от успеха.
+func playlistReady(body []byte) bool {
+	return bytes.Contains(body, []byte("#EXTM3U"))
 }
 
 // rewritePlaylist добавляет token к каждому URI в HLS-плейлисте.

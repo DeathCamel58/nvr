@@ -53,6 +53,8 @@ export const triggerColors: Record<string, string> = {
   plate: '#ea580c',
   line: '#06b6d4',
   object: '#22c55e',
+  acs: '#eab308',
+  audio: '#f43f5e',
   always: '#6b7280',
   manual: '#6b7280',
 };
@@ -62,6 +64,8 @@ export const triggerLabels: Record<string, string> = {
   plate: 'Номер',
   line: 'Пересечение',
   object: 'Объект',
+  acs: 'СКУД',
+  audio: 'Звук',
   always: 'Постоянно',
   manual: 'Вручную',
 };

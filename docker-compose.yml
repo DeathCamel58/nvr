@@ -1,6 +1,9 @@
 services:
   postgres:
     image: postgres:16-alpine
+    # Предел памяти: при утечке контейнер будет убит сам, а не утянет
+    # за собой весь сервер в global OOM.
+    mem_limit: 1g
     # unless-stopped — поднимать контейнер при старте Docker и после сбоев,
     # но не запускать повторно, если он был остановлен вручную.
     restart: unless-stopped
@@ -107,6 +110,9 @@ services:
     # свежести. Проверено на стенде: 1.9.14.
     image: alexxit/go2rtc:1.9.14
     restart: unless-stopped
+    # Предел памяти: go2rtc держит буферы всех потоков; без лимита
+    # утечка в нём вытесняет хост в global OOM.
+    mem_limit: 1g
     # host-сеть нужна по двум причинам: камеры живут в локальной сети
     # (порт 554), а WebRTC должен предлагать браузеру адрес, доступный
     # напрямую, без NAT внутри docker.
@@ -167,6 +173,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Предел памяти: ffmpeg-записи и буферы архива живут в контейнере.
+    # Без лимита один разросшийся ffmpeg (7,7 ГБ) вызвал global OOM.
+    mem_limit: 4g
     # host-сеть нужна, чтобы бэкенд видел камеры в локальной сети
     # и мог обращаться к MediaMTX/Postgres/MinIO по localhost.
     network_mode: host
@@ -193,6 +202,12 @@ services:
       # откуда берётся звук камер для перекодирования.
       GO2RTC_API: "http://localhost:1984"
       GO2RTC_RTSP: "localhost:8554"
+      # Буфер непрерывной записи и пребуфера событий. По умолчанию это
+      # /var/lib/nvr — том Docker на системном диске, и фрагменты по 5 минут
+      # заполняли корень до 100%. Кладём на группу дисков /nvr/video,
+      # где для архива и так выделено место.
+      RECORD_BUFFER_DIR: "${RECORD_BUFFER_DIR:-/nvr/video/buffer}"
+      AUDIO_CLIP_DIR: "${AUDIO_CLIP_DIR:-/nvr/video/audio}"
       # Адрес go2rtc, доступный браузеру оператора (подставляется в ссылки).
       # Нужен потому, что внутренний адрес docker-сети в браузере не
       # работает — он указывал бы на машину самого оператора. Пусто —
@@ -347,6 +362,9 @@ services:
         # движков ничего не меняет.
         ONNXRUNTIME_PACKAGE: "${AI_ONNXRUNTIME_PACKAGE:-onnxruntime}"
     restart: unless-stopped
+    # Предел памяти: модели и буферы кадров. При утечке контейнер
+    # перезапустится, но не вытеснит хост в global OOM.
+    mem_limit: 5g
     environment:
       NATS_URL: "nats://nats:4222"
       # Детектор работает в bridge-сети compose, поэтому обращаемся к Postgres
@@ -488,10 +506,16 @@ services:
       context: ./ai-detector
       dockerfile: Dockerfile.publisher
     restart: unless-stopped
+    # Предел памяти: ffmpeg-циклы кадров и номеров. Один такой процесс
+    # доходил до 650 МБ и продолжал расти.
+    mem_limit: 2g
     # host-сеть нужна, чтобы дотянуться до камер в локальной сети (порт 554),
     # как это делает backend.
     network_mode: host
     environment:
+      # Внутренний RTSP go2rtc: publisher берёт кадры из него, а не из
+      # камеры напрямую, иначе на камере кончаются сессии.
+      GO2RTC_RTSP: "127.0.0.1:8554"
       DATABASE_URL: "postgres://nvr:${DB_PASSWORD:-nvr_secret}@localhost:5434/nvr?sslmode=disable"
       NATS_URL: "nats://localhost:4222"
       # Период опроса каждой камеры, сек
@@ -536,7 +560,9 @@ services:
       PLATE_SOURCE_STREAM: "${AI_PLATE_SOURCE:-main}"
       # Ширина кадра номеров из основного потока. 0 — без уменьшения:
       # уменьшение до сотен пикселей снова делает номер нечитаемым.
-      PLATE_FRAME_WIDTH_MAIN: "${AI_PLATE_WIDTH_MAIN:-0}"
+      # 1280 — компромисс: номер ещё читается, а ffmpeg на 1440p/4K
+      # не растёт до гигабайтов.
+      PLATE_FRAME_WIDTH_MAIN: "${AI_PLATE_WIDTH_MAIN:-1280}"
     volumes:
       # Часовой пояс хоста: в журналах и метках кадров нужен местный
       # время, а не UTC.

@@ -1666,6 +1666,20 @@ export const sipAPI = {
     api.post<{ server: string; number: string; display_name: string }>('/sip/provision', data),
 }
 
+/**
+ * Настройки приёма событий от бортовой детекции камеры.
+ *
+ * source=auto означает «определить по устройству»: OpenIPC — WebSocket
+ * аналитики, Hikvision — ISAPI, остальные — ONVIF.
+ */
+export interface CameraEventsSettings {
+  enabled: boolean
+  source: 'auto' | 'onvif' | 'hikvision' | 'openipc'
+  motion: boolean
+  objects: boolean
+  min_interval_sec: number
+}
+
 export const camerasAPI = {
   list: () => api.get<Camera[]>('/cameras'),
   get: (id: string) => api.get<Camera>(`/cameras/${id}`),
@@ -1730,6 +1744,13 @@ export const camerasAPI = {
   // Перезапуск камеры через API прошивки вместо SSH.
   restartCamera: (id: string) =>
     api.post<CameraCommandResult>(`/cameras/${id}/restart`, {}),
+
+  // Приём событий от бортовой детекции камеры. Отдельно от /detection:
+  // там наша детекция по кадрам, здесь — то, что камера нашла сама.
+  getCameraEvents: (id: string) =>
+    api.get<CameraEventsSettings>(`/cameras/${id}/camera-events`),
+  updateCameraEvents: (id: string, data: CameraEventsSettings) =>
+    api.put<CameraEventsSettings>(`/cameras/${id}/camera-events`, data),
 
   // Паспорт, состояние и параметры потоков, прочитанные с самой камеры
   // по её штатному протоколу (ISAPI у Hikvision, ONVIF у остальных).

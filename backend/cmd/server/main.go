@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/nvr/backend/internal/api"
 	"github.com/nvr/backend/internal/api/handlers"
+	"github.com/nvr/backend/internal/cameraevents"
 	"github.com/nvr/backend/internal/config"
 	"github.com/nvr/backend/internal/domain"
 	"github.com/nvr/backend/internal/hostagent"
@@ -80,7 +82,11 @@ func main() {
 	// Медиасервер — go2rtc: через его API бэкенд регистрирует потоки камер,
 	// а браузер получает WebRTC/HLS (см. plans/go2rtc-migration.md).
 	go2rtcAPI := cfg.Go2rtcAPI
-	cameraSvc := service.NewCameraService(cameraRepo, go2rtcAPI)
+	cameraSvc := service.NewCameraService(cameraRepo, go2rtcAPI).
+		// Запись и клипы читают внутренний поток go2rtc, а не камеру
+		// напрямую: у камер ограничено число RTSP-сессий, и лишние
+		// подключения мешали открыть поток зрителю.
+		WithGo2rtcRTSP(cfg.Go2rtcRTSP)
 	eventSvc := service.NewEventService(eventRepo)
 
 	// СКУД-адаптеры
@@ -401,6 +407,28 @@ func main() {
 		WithRestore(cameraSvc.RegisterStreams)
 	go statusMonitor.Start(context.Background())
 
+	// Приём событий от бортовой детекции камер.
+	//
+	// Источники (ONVIF PullPoint, Hikvision ISAPI, WebSocket OpenIPC)
+	// нормализуют событие и публикуют его в ту же шину, что и ai-detector.
+	// Поэтому архив, снимки, уведомления, вебхуки и поток тревог для
+	// операторов работают без отдельной ветки логики.
+	//
+	// Отдельное подключение к NATS, а не переиспользование подписчика:
+	// подписчик создаёт соединение для чтения, и держать на нём ещё один
+	// поток публикации значило бы связывать независимые части.
+	if cfg.NatsURL != "" {
+		evNC, evErr := nats.Connect(cfg.NatsURL)
+		if evErr != nil {
+			log.Warn().Err(evErr).Str("url", cfg.NatsURL).
+				Msg("камерные события недоступны: нет связи с NATS")
+		} else {
+			defer evNC.Close()
+			cameraEvents := cameraevents.NewManager(cameraRepo, natsEventPublisher{conn: evNC})
+			go cameraEvents.Start(context.Background())
+		}
+	}
+
 	// Мониторинг здоровья камер OpenIPC: раз в минуту читает /metrics и
 	// /api/v1/sources у Majestic, чтобы показать загрузку, память и
 	// состояние видео-потоков прямо в интерфейсе.
@@ -623,8 +651,9 @@ func main() {
 
 	// Инициализация роутера
 	router := api.NewRouter(api.RouterConfig{
-		CameraSvc: cameraSvc,
-		EventSvc:  eventSvc,
+		CameraSvc:  cameraSvc,
+		CameraRepo: cameraRepo,
+		EventSvc:   eventSvc,
 		// Разграничение прав: кому какие камеры и контроллеры СКУД видно,
 		// и выдача этих прав из интерфейса.
 		//
@@ -726,6 +755,16 @@ func main() {
 	}
 
 	log.Info().Msg("server stopped")
+}
+
+// natsEventPublisher отправляет камерные события в NATS.
+//
+// Тонкая обёртка, а не прямой *nats.Conn в менеджере: менеджер проверяется
+// без брокера, а замена шины не затрагивает разбор протоколов камер.
+type natsEventPublisher struct{ conn *nats.Conn }
+
+func (p natsEventPublisher) Publish(subject string, data []byte) error {
+	return p.conn.Publish(subject, data)
 }
 
 // syncAudio приводит процессы транскодирования звука в соответствие

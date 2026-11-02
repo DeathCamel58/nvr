@@ -36,6 +36,24 @@ export default {
 
   noRightsHint: '您的账户没有执行此操作的权限。请联系服务器管理员。',
 
+  cameraEventsPanel: {
+    title: '摄像机自身事件',
+    hint: '摄像机可以上报自己检测到的运动、人员、车辆。这更快、更省资源，但不替代服务器检测——摄像机和本服务器的检测独立运行，重复事件会合并。',
+    enabled: '接收摄像机事件',
+    source: '来源',
+    sourceAuto: '自动检测',
+    interval: '重复合并，秒',
+    motion: '无类别的运动',
+    objects: '对象：人员、车辆、动物',
+    openipcHint: '在 OpenIPC 上，需要在摄像机界面安装 NPU 模型并由设备所有者接受 EULA 后，才能收到对象事件。',
+    save: '保存',
+    saving: '保存中…',
+    saved: '摄像机事件设置已保存',
+    saveFailed: '无法保存设置',
+    loading: '正在加载设置…',
+    loadFailed: '无法加载摄像机事件设置',
+  },
+
   usersPage: {
     title: '用户',
     hint: '账户决定此人能看到什么、能做什么。角色只是权限的预设：选定角色后仍可逐项调整勾选框。',

@@ -26,6 +26,11 @@ type RouterConfig struct {
 	CameraSvc *service.CameraService
 	EventSvc  *service.EventService
 	ACSSvc    *service.ACSService
+	// CameraRepo — доступ к камерам для настроек приёма событий.
+	//
+	// Отдельно от CameraSvc: обработчику нужна только запись одного ключа
+	// в settings, и тянуть ради этого весь сервис камер незачем.
+	CameraRepo *postgres.CameraRepo
 	// CameraAccessSvc — разграничение прав: что какому пользователю видно.
 	//
 	// nil означает «проверки выключены»: такой сервер покажет весь парк
@@ -194,6 +199,9 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		// активность в панели.
 		WithSipStatus(cfg.SipStatus)
 	cameraH := handlers.NewCameraHandler(cfg.CameraSvc)
+	// Приём событий от самих камер: отдельная настройка камеры, потому что
+	// у части парка бортовой детекции нет, а у части она уже включена.
+	camEventsH := handlers.NewCameraEventsHandler(cfg.CameraRepo)
 	streamH := handlers.NewStreamHandler(cfg.CameraSvc, cfg.Go2rtcAPI, cfg.Go2rtcPublicHost, tokenAuth)
 	// WHEP-прокси для мобильного приложения: адрес медиасервера тот же,
 	// что у HLS — go2rtc отдаёт и то, и другое с одного API-порта.
@@ -271,6 +279,7 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		cfg.CameraSvc, cfg.ACSSvc, cfg.ACSAccessSvc, userSvc,
 	)
 	cameraH = cameraH.WithAccess(cfg.CameraAccessSvc)
+	camEventsH = camEventsH.WithAccess(cfg.CameraAccessSvc)
 	streamH = streamH.WithGuard(accessGuard)
 	webrtcH = webrtcH.WithGuard(accessGuard)
 	camPreviewH = camPreviewH.WithGuard(accessGuard)
@@ -505,6 +514,12 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 			r.Get("/cameras/{id}/settings", camSettingsH.Get)
 			r.Patch("/cameras/{id}/settings", camSettingsH.Update)
 			r.Post("/cameras/{id}/restart", camSettingsH.Restart)
+
+			// Приём событий от бортовой детекции камеры: источник,
+			// классы и склейка повторов. Отдельно от /detection: там
+			// наша детекция по кадрам, здесь — события самой камеры.
+			r.Get("/cameras/{id}/camera-events", camEventsH.Get)
+			r.Put("/cameras/{id}/camera-events", camEventsH.Update)
 
 			r.Get("/cameras/{id}", cameraH.Get)
 			r.Patch("/cameras/{id}", cameraH.Update)
