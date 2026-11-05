@@ -181,6 +181,11 @@ services:
     network_mode: host
     environment:
       PORT: "8080"
+      # Мягкий предел памяти для Go: перед ним сборщик мусора работает чаще
+      # и возвращает память системе. Страховка на случай нового пика
+      # (например, крупного куска записи): без неё процесс доходит до
+      # mem_limit и его убивает OOM, а снаружи это «502» на всех запросах.
+      GOMEMLIMIT: "${GOMEMLIMIT:-3GiB}"
       DATABASE_URL: "postgres://nvr:${DB_PASSWORD:-nvr_secret}@localhost:5434/nvr?sslmode=disable"
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       LOG_LEVEL: ${LOG_LEVEL:-debug}

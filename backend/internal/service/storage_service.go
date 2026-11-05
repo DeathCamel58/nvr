@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -295,17 +296,48 @@ func moveLocal(basePath, key, src string) (string, error) {
 		return "", fmt.Errorf("create dir for %q: %w", full, err)
 	}
 	if err := os.Rename(src, full); err != nil {
-		// Разные файловые системы — копируем и удаляем исходник
-		data, rdErr := os.ReadFile(src)
-		if rdErr != nil {
-			return "", fmt.Errorf("move %q: %w", full, err)
-		}
-		if wrErr := os.WriteFile(full, data, 0o644); wrErr != nil {
-			return "", fmt.Errorf("write %q: %w", full, wrErr)
+		// Разные файловые системы — копируем потоком и удаляем исходник.
+		//
+		// Именно потоком: кусок непрерывной записи бывает в сотни мегабайт,
+		// а os.ReadFile держал его целиком в памяти. При двух десятках камер
+		// это складывалось в гигабайты, контейнер упирался в лимит и его
+		// убивало по OOM — снаружи это выглядело как «панель отвечает 502».
+		if cpErr := copyFile(src, full); cpErr != nil {
+			return "", fmt.Errorf("move %q: %w", full, cpErr)
 		}
 		os.Remove(src)
 	}
 	return "local:" + full, nil
+}
+
+// copyFile копирует файл потоком, не загружая его целиком в память.
+//
+// Размер буфера выбран из тех же соображений, что и у io.Copy по умолчанию:
+// дальше скорость упирается в диск, а память на буфер уже не растёт.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(dst)
+		return err
+	}
+	// Сбрасываем на диск до закрытия: иначе при сбое питания в архиве
+	// остался бы файл нулевой длины, а исходник уже удалён.
+	if err := out.Sync(); err != nil {
+		out.Close()
+		os.Remove(dst)
+		return err
+	}
+	return out.Close()
 }
 
 // RecordingURL возвращает ссылку на файл записи.
