@@ -5,6 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	// Профилировщик нужен на живой установке: «сервер съел память» иначе
+	// разбирается только догадками. Слушает он лишь localhost, поэтому
+	// снаружи недоступен.
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -38,6 +42,15 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to load config")
 	}
+
+	// Профилировщик на localhost: по дампу heap видно, что именно держит
+	// память, когда контейнер убивает по лимиту. Отдельный порт, а не
+	// маршрут API: он не должен быть доступен ни снаружи, ни клиентам.
+	go func() {
+		if err := http.ListenAndServe("127.0.0.1:6060", nil); err != nil {
+			log.Warn().Err(err).Msg("профилировщик памяти недоступен")
+		}
+	}()
 
 	// Инициализация логгера
 	logger.Init(cfg.LogLevel, cfg.LogFormat)
