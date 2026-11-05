@@ -86,12 +86,30 @@ type MajesticClient struct {
 	isDigest *bool
 }
 
+// majesticTransport — общий транспорт всех клиентов Majestic.
+//
+// Клиент создаётся на каждый опрос, и раньше вместе с ним создавался свой
+// транспорт. Соединение после ответа оставалось в пуле этого транспорта, а сам
+// транспорт больше никто не использовал и не закрывал, поэтому соединение
+// висело открытым, пока работает backend. На камере оно занимало файловый
+// дескриптор: на gk7205v300 при лимите 1024 проверка раз в минуту исчерпывала
+// их примерно за сутки, и Majestic переставал отвечать по HTTP и RTSP.
+//
+// Общий транспорт использует соединение повторно, а IdleConnTimeout закрывает
+// то, что простаивает, даже когда камеру удалили и опросов больше не будет.
+// Камеры слабые, держать им лишнее соединение незачем: 30 секунд меньше периода
+// проверки, поэтому между опросами соединение на камере не занято вовсе.
+//
+// MaxIdleConns не задан намеренно: это общий предел на все камеры, и на большом
+// парке он выталкивал бы соединения соседних камер.
+var majesticTransport = &http.Transport{
+	MaxIdleConnsPerHost: 2,
+	IdleConnTimeout:     30 * time.Second,
+}
+
 // NewMajesticClient создаёт клиент для камеры.
 func NewMajesticClient(ip, username, password string) *MajesticClient {
-	transport := &http.Transport{
-		MaxIdleConns:        4,
-		MaxIdleConnsPerHost: 2,
-	}
+	transport := majesticTransport
 	return &MajesticClient{
 		ip:       ip,
 		username: username,
