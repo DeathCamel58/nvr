@@ -127,7 +127,7 @@ func telegramStub(t *testing.T, requests *[]string) *httptest.Server {
 			json.NewEncoder(w).Encode(map[string]any{
 				"ok": true,
 				"result": map[string]any{
-					"id": -1001234567890, "title": "Тестовый канал", "type": "channel",
+					"id": int64(-1001234567890), "title": "Тестовый канал", "type": "channel",
 				},
 			})
 		case strings.HasSuffix(r.URL.Path, "/sendMessage"):
