@@ -48,6 +48,8 @@ export default function CameraDeviceCard({ cameraID, vendor }: {
   const { t } = useTranslation()
 
   const load = async () => {
+    // OpenIPC has no device API (the card is not rendered): do not ask, the request can only fail with 502.
+    if (vendor === 'openipc') return
     setLoading(true)
     setError(null)
     try {
@@ -64,7 +66,7 @@ export default function CameraDeviceCard({ cameraID, vendor }: {
     }
   }
 
-  useEffect(() => { load() }, [cameraID])
+  useEffect(() => { load() }, [cameraID, vendor])
 
   const reboot = async () => {
     setBusy(true)
