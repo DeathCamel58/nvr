@@ -281,10 +281,15 @@ export default function DashboardPage() {
               {t('dashboardPage.memory')}
             </h3>
             <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-              {t('dashboardPage.memDetail', {
-                used: num(s.mem_used_mb / 1024, 1),
-                total: num(s.mem_total_mb / 1024, 1),
-              })}
+              {s.mem_total_mb < 1024
+                ? t('dashboardPage.memorySub', {
+                    used: num(s.mem_used_mb, 0),
+                    total: num(s.mem_total_mb, 0),
+                  })
+                : t('dashboardPage.memDetail', {
+                    used: num(s.mem_used_mb / 1024, 1),
+                    total: num(s.mem_total_mb / 1024, 1),
+                  })}
             </div>
             <LoadBar percent={s.mem_used_percent} />
           </div>
