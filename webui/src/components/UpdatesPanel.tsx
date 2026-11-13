@@ -219,7 +219,9 @@ export default function UpdatesPanel() {
     try {
       const res = await updatesAPI.check()
       setCheck(res.data)
-      if (res.data.error) {
+      if (!res.data.available) {
+        toastError(t('serverPage.agentDownHint'))
+      } else if (res.data.error) {
         toastError(res.data.error)
       } else if (res.data.check?.behind) {
         success(t('updates.foundNew'))
@@ -389,7 +391,7 @@ export default function UpdatesPanel() {
         ) : check?.error ? (
           <div style={warningStyle}>
             <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-            <div>{check.error}</div>
+            <div>{check.available ? check.error : t('serverPage.agentDownHint')}</div>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 6, fontSize: 14 }}>
