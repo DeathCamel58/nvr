@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -83,5 +85,18 @@ func TestEvaluateMemoryRule(t *testing.T) {
 				t.Fatalf("memory issue = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestCameraHealthJSONMemoryKnown(t *testing.T) {
+	for _, known := range []bool{true, false} {
+		b, err := json.Marshal(CameraHealth{MemAvailableKnown: known})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := fmt.Sprintf(`"mem_available_known":%v`, known)
+		if !strings.Contains(string(b), want) || !strings.Contains(string(b), `"mem_available_mb":0`) {
+			t.Fatalf("json %s lacks %s or mem_available_mb", b, want)
+		}
 	}
 }

@@ -99,8 +99,9 @@ type CameraHealth struct {
 	MemFreeMB  float64 `json:"mem_free_mb"`
 	// MemAvailableMB — память, доступная приложениям.
 	MemAvailableMB float64 `json:"mem_available_mb"`
-	// MemAvailableKnown — false, если камера не сообщила память: правило не применяется.
-	MemAvailableKnown bool `json:"-"`
+	// MemAvailableKnown — false, если камера не сообщила память: правило не применяется,
+	// а интерфейс показывает прочерк вместо нуля.
+	MemAvailableKnown bool `json:"mem_available_known"`
 	// ISPFPS — фактический fps сенсора.
 	ISPFPS int `json:"isp_fps"`
 	// RTSPClients — сколько клиентов смотрят камеру.
