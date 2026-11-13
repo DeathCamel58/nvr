@@ -314,6 +314,9 @@ export default function ServerSettingsPage() {
             <div style={{ marginTop: 6 }}>
               {t('serverPage.agentDownHint')}
             </div>
+            {status?.error && (
+              <div style={{ marginTop: 4, fontSize: 12, opacity: 0.8 }}>{status.error}</div>
+            )}
             <div style={{ marginTop: 6, opacity: 0.85 }}>
               {t('serverPage.agentInstall')}{' '}
               <code>sudo bash host-agent/install.sh</code>.

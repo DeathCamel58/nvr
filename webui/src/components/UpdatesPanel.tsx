@@ -220,7 +220,14 @@ export default function UpdatesPanel() {
       const res = await updatesAPI.check()
       setCheck(res.data)
       if (!res.data.available) {
-        toastError(t('serverPage.agentDownHint'))
+        // available=false covers both "agent unreachable" and "agent answered
+        // but the call failed"; the backend sends no field to tell them
+        // apart, so keep its error text next to the translated hint.
+        toastError(
+          res.data.error
+            ? `${t('serverPage.agentDownHint')} (${res.data.error})`
+            : t('serverPage.agentDownHint'),
+        )
       } else if (res.data.error) {
         toastError(res.data.error)
       } else if (res.data.check?.behind) {
@@ -391,7 +398,16 @@ export default function UpdatesPanel() {
         ) : check?.error ? (
           <div style={warningStyle}>
             <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-            <div>{check.available ? check.error : t('serverPage.agentDownHint')}</div>
+            <div>
+              {check.available ? (
+                check.error
+              ) : (
+                <>
+                  {t('serverPage.agentDownHint')}
+                  <div style={{ marginTop: 4, fontSize: 12, opacity: 0.8 }}>{check.error}</div>
+                </>
+              )}
+            </div>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 6, fontSize: 14 }}>
