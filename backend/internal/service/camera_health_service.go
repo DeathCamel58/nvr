@@ -99,6 +99,9 @@ type CameraHealth struct {
 	MemFreeMB  float64 `json:"mem_free_mb"`
 	// MemAvailableMB — память, доступная приложениям.
 	MemAvailableMB float64 `json:"mem_available_mb"`
+	// MemAvailableKnown — false, если камера не сообщила память: правило не применяется,
+	// а интерфейс показывает прочерк вместо нуля.
+	MemAvailableKnown bool `json:"mem_available_known"`
 	// ISPFPS — фактический fps сенсора.
 	ISPFPS int `json:"isp_fps"`
 	// RTSPClients — сколько клиентов смотрят камеру.
@@ -306,6 +309,7 @@ func (s *CameraHealthService) collectOne(ctx context.Context, cam domain.Camera)
 	h.MemTotalMB = health.MemTotalMB
 	h.MemFreeMB = health.MemFreeMB
 	h.MemAvailableMB = health.MemAvailableMB
+	h.MemAvailableKnown = health.MemAvailableKnown
 	h.ISPFPS = health.ISPFPS
 	h.RTSPClients = health.RTSPClients
 	h.VencEmptyFrames = health.VencEmptyFrames
@@ -379,7 +383,7 @@ func (s *CameraHealthService) evaluate(h *CameraHealth) {
 
 	// Память: порог в 10 МБ ниже типичного потребления Majestic, при
 	// меньшем запасе камера рискует упасть при следующем запросе.
-	if h.MemTotalMB > 0 {
+	if h.MemTotalMB > 0 && h.MemAvailableKnown {
 		switch {
 		case h.MemAvailableMB < 5:
 			h.addIssue("mem_critical", map[string]string{"mb": fmt.Sprintf("%.1f", h.MemAvailableMB)})

@@ -403,6 +403,7 @@ export interface CameraHealth {
   load1?: number
   mem_total_mb?: number
   mem_available_mb?: number
+  mem_available_known?: boolean
   isp_fps?: number
   isp_exposure?: number
   isp_gain?: number

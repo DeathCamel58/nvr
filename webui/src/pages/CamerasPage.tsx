@@ -98,7 +98,7 @@ function HealthBadge({ health }: { health?: CameraHealth }) {
   const { t } = useTranslation()
   if (!health || !health.supported) return null
   const style = HEALTH_STYLE[health.level] ?? HEALTH_STYLE.unknown
-  const mem = health.mem_available_mb != null
+  const mem = health.mem_available_known !== false && health.mem_available_mb != null
     ? t('camerasPage.megabytes', { value: health.mem_available_mb.toFixed(0) })
     : '—'
 

@@ -316,6 +316,9 @@ type MajesticHealth struct {
 	// MemAvailableMB — память, доступная приложениям: важнее свободной,
 	// потому что часть занята кэшем, который может быть освобождён.
 	MemAvailableMB float64 `json:"mem_available_mb"`
+	// MemAvailableKnown — известна ли доступная память: камеры с ядром до 3.14
+	// не отдают MemAvailable, тогда она оценивается как MemFree+Buffers+Cached.
+	MemAvailableKnown bool `json:"-"`
 	// ISPFPS — текущий fps сенсора.
 	ISPFPS int `json:"isp_fps"`
 	// ISPExposure, ISPGain — параметры экспозиции: по ним видно,
@@ -354,6 +357,8 @@ func (m *MajesticClient) GetHealth(ctx context.Context) (*MajesticHealth, error)
 
 	h := &MajesticHealth{Online: true}
 	text := string(data)
+	var buffersMB, cachedMB float64
+	var haveFree bool
 
 	// Разбираем построчно: имя метрики, опциональные метки, значение.
 	for _, line := range strings.Split(text, "\n") {
@@ -373,8 +378,14 @@ func (m *MajesticClient) GetHealth(ctx context.Context) (*MajesticHealth, error)
 			h.MemTotalMB = value / 1024 / 1024
 		case "node_memory_MemFree_bytes":
 			h.MemFreeMB = value / 1024 / 1024
+			haveFree = true
+		case "node_memory_Buffers_bytes":
+			buffersMB = value / 1024 / 1024
+		case "node_memory_Cached_bytes":
+			cachedMB = value / 1024 / 1024
 		case "node_memory_MemAvailable_bytes":
 			h.MemAvailableMB = value / 1024 / 1024
+			h.MemAvailableKnown = true
 		case "isp_fps":
 			h.ISPFPS = int(value)
 		case "isp_exposure":
@@ -401,6 +412,13 @@ func (m *MajesticClient) GetHealth(ctx context.Context) (*MajesticHealth, error)
 			h.Kernel = labels["release"]
 			h.Machine = labels["nodename"]
 		}
+	}
+
+	// Ядро до 3.14 не отдаёт MemAvailable: оцениваем по MemFree+Buffers+Cached.
+	// Без MemFree оценки нет, и 0 здесь означал бы «память кончилась».
+	if !h.MemAvailableKnown && haveFree {
+		h.MemAvailableMB = h.MemFreeMB + buffersMB + cachedMB
+		h.MemAvailableKnown = true
 	}
 
 	return h, nil
