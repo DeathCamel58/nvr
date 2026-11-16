@@ -682,7 +682,7 @@ func formatCardCode(facility int, number int64) (string, error) {
 		return "", fmt.Errorf("facility %d вне диапазона 0..%d", facility, z5rMaxFacility)
 	}
 	if number < 0 || number > z5rMaxCard {
-		return "", fmt.Errorf("номер карты %d вне диапазона 0..%d", number, z5rMaxCard)
+		return "", fmt.Errorf("номер карты %d вне диапазона 0..%d", number, int64(z5rMaxCard))
 	}
 
 	// Шесть байт: два байта facility, затем четыре байта номера.

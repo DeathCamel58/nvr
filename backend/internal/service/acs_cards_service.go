@@ -297,7 +297,7 @@ func validateCard(card domain.ACSCard) error {
 		return fmt.Errorf("facility должен быть от 0 до %d", maxCardFacility)
 	}
 	if card.CardNumber < 0 || card.CardNumber > maxCardNumber {
-		return fmt.Errorf("номер карты должен быть от 0 до %d", maxCardNumber)
+		return fmt.Errorf("номер карты должен быть от 0 до %d", int64(maxCardNumber))
 	}
 	if card.ControllerID == uuid.Nil {
 		return fmt.Errorf("не указан контроллер")
