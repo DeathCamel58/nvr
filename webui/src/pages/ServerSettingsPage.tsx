@@ -238,7 +238,7 @@ export default function ServerSettingsPage() {
       if (ok) {
         success(t('serverPage.agentOk'))
       } else {
-        toastError(res.data.error ?? t('serverPage.agentFail'))
+        toastError(t('serverPage.agentFail'))
       }
       applyStatus(res.data)
     } catch {
@@ -312,8 +312,11 @@ export default function ServerSettingsPage() {
           <div>
             <strong>{t('serverPage.agentDownTitle')}</strong>
             <div style={{ marginTop: 6 }}>
-              {status?.error ?? t('serverPage.agentDownHint')}
+              {t('serverPage.agentDownHint')}
             </div>
+            {status?.error && (
+              <div style={{ marginTop: 4, fontSize: 12, opacity: 0.8 }}>{status.error}</div>
+            )}
             <div style={{ marginTop: 6, opacity: 0.85 }}>
               {t('serverPage.agentInstall')}{' '}
               <code>sudo bash host-agent/install.sh</code>.
