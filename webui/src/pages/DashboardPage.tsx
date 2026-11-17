@@ -172,7 +172,7 @@ export default function DashboardPage() {
                   <>
                     {/* Путь показываем целиком: по нему сверяют настройку с
                         реальным диском, когда место вдруг кончилось. */}
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10, overflowWrap: 'anywhere' }}>
                       <code>{st.path}</code>
                     </div>
                     <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>

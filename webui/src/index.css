@@ -144,6 +144,14 @@ input:focus, select:focus, textarea:focus {
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
+/* Двухколоночные страницы с боковой панелью фиксированной ширины. Инлайновый
+   grid-template-columns перебивал мобильное правило, поэтому колонки заданы тут. */
+.layout-calendar { grid-template-columns: 320px minmax(0, 1fr); }
+.layout-detail { grid-template-columns: minmax(0, 1fr) 340px; }
+@media (max-width: 1000px) {
+  .layout-calendar, .layout-detail { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 768px) {
   .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
