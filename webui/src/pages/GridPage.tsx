@@ -369,7 +369,7 @@ export default function GridPage() {  const toast = useToast()
                 flex: 1,
                 display: 'grid',
                 gap: 8,
-                gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
+                gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
                 minHeight: 0,
               }}

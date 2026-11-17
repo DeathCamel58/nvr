@@ -20,7 +20,7 @@ import {
  * 1440 пикселей на сутки — это один пиксель на минуту. Оператор видит
  * общую картину дня; для точного поиска масштаб увеличивается.
  */
-const TIMELINE_BASE_WIDTH = 1440
+// Ширина шкалы при масштабе 1.0x равна ширине контейнера (width: zoom * 100%), а не фиксированным пикселям.
 
 /** Пределы масштаба шкалы. */
 const ZOOM_MIN = 0.5
@@ -656,7 +656,7 @@ export default function RecordingsPage() {
     })
   }, [])
 
-  const timelineWidth = TIMELINE_BASE_WIDTH * zoom
+  const timelineWidth = `${zoom * 100}%`
 
   /** Подписи часов. При малом масштабе показываем реже, чтобы не сливались. */
   const hourMarks = useMemo(() => {
@@ -1458,7 +1458,7 @@ export default function RecordingsPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '320px minmax(0, 1fr)', gap: 16 }}>
         {/* Календарь */}
         <div className="card" style={{ padding: 14, alignSelf: 'start' }}>
           <div style={{

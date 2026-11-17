@@ -125,6 +125,7 @@ input:focus, select:focus, textarea:focus {
 .main-content {
   margin-left: 240px;
   flex: 1;
+  min-width: 0;
   padding: 28px 32px;
   min-height: 100vh;
 }
@@ -139,13 +140,13 @@ input:focus, select:focus, textarea:focus {
 }
 
 .grid { display: grid; gap: 20px; }
-.grid-2 { grid-template-columns: repeat(2, 1fr); }
-.grid-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
-@media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 768px) {
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: minmax(0, 1fr); }
   .sidebar { width: 60px; padding: 12px; }
   .sidebar-link span { display: none; }
   .sidebar-logo span { display: none; }
