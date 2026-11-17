@@ -93,7 +93,7 @@ export default function PTZPanel({ cameraId }: Props) {
   // бы ошибкой 403 и выглядели как неисправность камеры.
   if (!can('ptz.control')) {
     return (
-      <div className="card" style={{ marginTop: 16, display: 'flex', gap: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
+      <div className="card" style={{ display: 'flex', gap: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
         <Info size={16} style={{ flexShrink: 0, marginTop: 2 }} />
         <span>{t('noRightsHint')}</span>
       </div>
@@ -101,7 +101,7 @@ export default function PTZPanel({ cameraId }: Props) {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card">
       <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, fontSize: 15 }}>
         <Camera size={18} style={{ color: 'var(--accent)' }} />
         {t('ptzPanel.title')}

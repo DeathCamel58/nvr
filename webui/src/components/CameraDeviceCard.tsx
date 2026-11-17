@@ -88,7 +88,7 @@ export default function CameraDeviceCard({ cameraID, vendor }: {
   if (vendor === 'openipc') return null
 
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className="card">
       <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14, fontSize: 15 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Info size={18} style={{ color: 'var(--accent)' }} />

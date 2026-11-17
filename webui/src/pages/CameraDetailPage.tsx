@@ -691,9 +691,9 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
         </div>
 
         {/* Боковая панель */}
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Статус */}
-          <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 15 }}>
               <Info size={18} style={{ color: 'var(--accent)' }} />
               {t('cameraPage.info')}
@@ -749,7 +749,7 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
           </div>
 
           {/* Управление камерой через API прошивки */}
-          <div className="card" style={{ marginTop: 16 }}>
+          <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 15 }}>
               <Power size={18} style={{ color: 'var(--warning)' }} />
               {t('cameraPage.control')}
@@ -811,7 +811,7 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
               OpenIPC берут время у публичных серверов в интернете —
               здесь видно, так ли это, и можно перевести на наш сервер. */}
           <OpenIPCOnly vendor={camera.vendor} title={t('cameraPage.cameraTime')}>
-          <div className="card" style={{ marginTop: 16 }}>
+          <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 15 }}>
               <Clock size={18} style={{ color: 'var(--primary)' }} />
               {t('cameraPage.timeTitle')}
@@ -896,7 +896,7 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
               пропадает вместе с буфером. Здесь включается отправка логов
               на сервер, где они переживут и перезагрузку, и саму камеру. */}
           <OpenIPCOnly vendor={camera.vendor} title={t('cameraPage.logsTitle')}>
-          <div className="card" style={{ marginTop: 16 }}>
+          <div className="card">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 15 }}>
               <ScrollText size={18} style={{ color: 'var(--primary)' }} />
               {t('cameraPage.logsTitle')}
@@ -976,7 +976,7 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
               что сервер его уже поднимает и сколько раз это случалось —
               то есть понятно, ждать или ехать к камере. */}
           {isOpenIPC && majestic && majestic.last_state && (
-            <div className="card" style={{ marginTop: 16 }}>
+            <div className="card">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 15 }}>
                 <Activity size={18} style={{ color: 'var(--primary)' }} />
                 {t('cameraPage.streamerTitle')}

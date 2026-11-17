@@ -93,7 +93,7 @@ export default function CameraNetworkCard({ cameraID, cameraOnline }: {
   }
 
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className="card">
       <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 15 }}>
         <EthernetPort size={18} style={{ color: 'var(--accent)' }} />
         {t('cameraNetwork.title')}
