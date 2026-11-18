@@ -15,12 +15,15 @@ import {
 } from 'lucide-react'
 
 /**
- * Ширина шкалы в пикселях при масштабе 1.
+ * Ширина шкалы задаётся в долях контейнера (zoom * 100%), а не в пикселях.
  *
- * 1440 пикселей на сутки — это один пиксель на минуту. Оператор видит
- * общую картину дня; для точного поиска масштаб увеличивается.
+ * Раньше шкала была фиксированной (1440 px = пиксель на минуту при масштабе 1) и
+ * на окнах уже 1440 px уходила в горизонтальную прокрутку уже при масштабе 1.0x.
+ * Теперь при 1.0x она заполняет карточку, а увеличение даёт прокрутку внутри неё.
+ * Минимальная ширина нужна, чтобы на узком экране шкала не сжималась до пары
+ * пикселей: вместо этого она прокручивается внутри своей обёртки.
  */
-const TIMELINE_BASE_WIDTH = 1440
+const TIMELINE_MIN_WIDTH = 720
 
 /** Пределы масштаба шкалы. */
 const ZOOM_MIN = 0.5
@@ -656,7 +659,7 @@ export default function RecordingsPage() {
     })
   }, [])
 
-  const timelineWidth = TIMELINE_BASE_WIDTH * zoom
+  const timelineWidth = `${zoom * 100}%`
 
   /** Подписи часов. При малом масштабе показываем реже, чтобы не сливались. */
   const hourMarks = useMemo(() => {
@@ -1458,7 +1461,7 @@ export default function RecordingsPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
+      <div className="grid layout-calendar" style={{ gap: 16 }}>
         {/* Календарь */}
         <div className="card" style={{ padding: 14, alignSelf: 'start' }}>
           <div style={{
@@ -1655,7 +1658,7 @@ export default function RecordingsPage() {
               onWheel={onWheel}
               style={{ overflowX: 'auto', overflowY: 'hidden' }}
             >
-              <div style={{ width: timelineWidth, position: 'relative' }}>
+              <div style={{ width: timelineWidth, minWidth: TIMELINE_MIN_WIDTH, position: 'relative' }}>
                 {/* Подписи часов */}
                 <div style={{
                   position: 'relative', height: 22,

@@ -419,7 +419,7 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
         </button>
       </div>
 
-      <div className="grid grid-2" style={{ gridTemplateColumns: '1fr 340px' }}>
+      <div className="grid layout-detail">
         {/* Плеер */}
         <div>
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>

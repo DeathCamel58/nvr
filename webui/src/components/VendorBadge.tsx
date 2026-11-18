@@ -32,7 +32,8 @@ export default function VendorBadge({ vendor, verbose = false }: {
         padding: '2px 6px',
         borderRadius: 4,
         border: `1px solid ${color}`,
-        whiteSpace: 'nowrap',
+        whiteSpace: verbose ? 'normal' : 'nowrap',
+        overflowWrap: 'anywhere',
       }}
     >
       {verbose ? `${label} — ${hint}` : label}
