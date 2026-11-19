@@ -8,12 +8,18 @@
   --text-secondary: #9999b0;
   --accent: #5b7fff;
   --accent-hover: #4a6aee;
+  /* Заливки с белым текстом: --accent (#5b7fff) даёт контраст 3.5:1, этим цветам хватает WCAG AA (4.5:1). */
+  --accent-solid: #4a6aee;
+  --accent-solid-hover: #3d5fe0;
+  --danger-solid: #d42a4a;
   --success: #34c759;
   --danger: #ff3b5c;
+  --danger-text: #ff6b85; /* красный текст на подложке rgba(danger, .15): --danger даёт 3.8:1, этот цвет 5:1+ */
   --warning: #ff9f0a;
   --radius: 10px;
   --radius-sm: 6px;
   --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  color-scheme: dark; /* встроенные элементы (полосы прокрутки, select, date/time, чекбоксы, ползунки) рисуются тёмными */
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -35,6 +41,7 @@ a:hover { color: var(--accent-hover); }
 button {
   cursor: pointer;
   border: none;
+  color: var(--text-primary); /* без этого кнопки без .btn получали чёрный текст браузера на тёмном фоне */
   font-family: var(--font);
   font-size: 14px;
   transition: all 0.2s;
@@ -120,7 +127,7 @@ input:focus, select:focus, textarea:focus {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
-.sidebar-link.active { background: var(--accent); color: #fff; }
+.sidebar-link.active { background: var(--accent-solid); color: #fff; }
 
 .main-content {
   margin-left: 240px;
@@ -160,10 +167,12 @@ input:focus, select:focus, textarea:focus {
   padding: 10px 20px;
   border-radius: var(--radius-sm);
   font-weight: 600;
+  /* без явного фона кнопка берёт системный (в тёмной схеме #6b6b6b), и текст на нём даёт 4.4:1 */
+  background: var(--bg-hover);
 }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-danger { background: var(--danger); color: #fff; }
+.btn-primary { background: var(--accent-solid); color: #fff; }
+.btn-primary:hover { background: var(--accent-solid-hover); }
+.btn-danger { background: var(--danger-solid); color: #fff; }
 .btn-danger:hover { opacity: 0.9; }
 .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
 .btn-outline:hover { background: var(--bg-hover); }
@@ -180,7 +189,7 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
 }
 .badge-online { background: rgba(52, 199, 89, 0.15); color: var(--success); }
-.badge-offline { background: rgba(255, 59, 92, 0.15); color: var(--danger); }
+.badge-offline { background: rgba(255, 59, 92, 0.15); color: var(--danger-text); }
 .badge-recording { background: rgba(255, 159, 10, 0.15); color: var(--warning); }
 
 .badge-dot {
@@ -332,9 +341,9 @@ tr:hover td { background: var(--bg-hover); }
   font-weight: 500; z-index: 200;
   animation: slideIn 0.3s ease;
 }
-.toast-success { background: var(--success); color: #fff; }
-.toast-error { background: var(--danger); color: #fff; }
-.toast-info { background: var(--accent); color: #fff; }
+.toast-success { background: var(--success); color: var(--bg-primary); }
+.toast-error { background: var(--danger-solid); color: #fff; }
+.toast-info { background: var(--accent-solid); color: #fff; }
 @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
 /* Camera card hover */

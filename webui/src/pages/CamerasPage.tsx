@@ -322,10 +322,10 @@ export default function CamerasPage() {
                   <div style={{ fontSize: 11 }}>{healthErrorText(t, healthByCamera.get(cam.id)!.error_code)}</div>
                 )}
                 {healthByCamera.get(cam.id)?.error && (
-                  <div style={{ fontSize: 11, opacity: 0.7 }}>{healthByCamera.get(cam.id)!.error}</div>
+                  <div style={{ fontSize: 11 }}>{healthByCamera.get(cam.id)!.error}</div>
                 )}
-                {cam.main_stream && <div style={{ fontSize: 11, wordBreak: 'break-all', opacity: 0.7 }}>Main: {cam.main_stream.slice(0, 40)}...</div>}
-                {cam.sub_stream && <div style={{ fontSize: 11, wordBreak: 'break-all', opacity: 0.7 }}>Sub: {cam.sub_stream.slice(0, 40)}...</div>}
+                {cam.main_stream && <div style={{ fontSize: 11, wordBreak: 'break-all' }}>Main: {cam.main_stream.slice(0, 40)}...</div>}
+                {cam.sub_stream && <div style={{ fontSize: 11, wordBreak: 'break-all' }}>Sub: {cam.sub_stream.slice(0, 40)}...</div>}
                 {!cam.main_stream && !cam.sub_stream && cam.rtsp_url && <div style={{ fontSize: 11, wordBreak: 'break-all' }}>RTSP: {cam.rtsp_url.slice(0, 35)}...</div>}
                 <div style={{ marginTop: 4 }}>{t('camerasPage.addedAt', { date: new Date(cam.created_at).toLocaleDateString() })}</div>
               </div>

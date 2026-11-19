@@ -231,9 +231,9 @@ function ChannelRow({
         padding: 12,
         borderRadius: 8,
         border: '1px solid var(--border)',
-        // Офлайн-канал приглушаем: адрес существует, но потока в нём нет,
-        // и оператору важно видеть это сразу.
-        opacity: isOnline ? 1 : 0.55,
+        // Офлайн-канал отмечаем пунктирной рамкой, а не прозрачностью: при opacity 0.55
+        // серый текст падает до контраста 2.7:1 (ниже WCAG AA).
+        borderStyle: isOnline ? 'solid' : 'dashed',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
