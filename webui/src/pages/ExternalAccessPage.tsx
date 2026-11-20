@@ -230,7 +230,10 @@ function ChannelRow({
       style={{
         padding: 12,
         borderRadius: 8,
-        border: '1px solid var(--border)',
+        // Рамка задана длинными свойствами: borderStyle меняется между рендерами,
+        // а в сочетании с шорткатом border React в dev-режиме сыплет предупреждениями.
+        borderWidth: 1,
+        borderColor: 'var(--border)',
         // Офлайн-канал отмечаем пунктирной рамкой, а не прозрачностью: при opacity 0.55
         // серый текст падает до контраста 2.7:1 (ниже WCAG AA).
         borderStyle: isOnline ? 'solid' : 'dashed',
