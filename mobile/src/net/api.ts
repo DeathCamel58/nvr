@@ -17,6 +17,7 @@ import type {
   SipGroupBrief,
   StreamInfo,
 } from '../types';
+import { t } from '../i18n';
 import type { SipLineInfo } from './sipClient';
 
 /**
@@ -64,8 +65,8 @@ function readBlockedMessage(data: unknown): string {
   const message = String(body.error ?? '');
   if (message) return message;
   return code === CLIENT_FORBIDDEN_CODE
-    ? 'Доступ в приложение для этой учётной записи закрыт. Обратитесь к администратору.'
-    : 'Доступ в приложение заблокирован. Обратитесь к администратору.';
+    ? t('net.clientForbidden')
+    : t('net.accountBlocked');
 }
 
 /** Что клиент сообщает наружу, когда состояние сессии меняется. */
@@ -560,19 +561,19 @@ export function toApiError(
   }
 
   if (status === 401) {
-    return new Error('Неверный логин или пароль');
+    return new Error(t('net.invalidCredentials'));
   }
   if (status === 403) {
-    return new Error('Доступ запрещён: у пользователя нет прав');
+    return new Error(t('net.forbidden'));
   }
   if (status === 404) {
-    return new Error('Не найдено на сервере');
+    return new Error(t('net.notFound'));
   }
   if (status >= 500) {
     return new Error(
       serverMessage
-        ? `Ошибка сервера: ${serverMessage}`
-        : `Сервер ответил ошибкой ${status}`,
+        ? t('net.serverError', { message: serverMessage })
+        : t('net.serverStatus', { status }),
     );
   }
   if (serverMessage) {
@@ -592,10 +593,10 @@ export function describeNetworkError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError;
     if (axiosError.code === 'ECONNABORTED') {
-      return 'Сервер не ответил вовремя. Проверьте адрес и доступность порта.';
+      return t('net.timeout');
     }
     if (axiosError.code === 'ERR_NETWORK') {
-      return 'Не удалось соединиться. Проверьте адрес, порт и то, что телефон в той же сети.';
+      return t('net.connectFailed');
     }
     if (axiosError.response) {
       return toApiError(
@@ -608,5 +609,5 @@ export function describeNetworkError(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
   }
-  return 'Неизвестная ошибка';
+  return t('net.unknownError');
 }

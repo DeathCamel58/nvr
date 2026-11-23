@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Camera, CameraType } from 'react-native-camera-kit';
+import { useTranslation } from 'react-i18next';
 
 import { useApp } from '../state/AppContext';
 import { parsePairingString } from '../net/pairing';
@@ -33,6 +34,7 @@ export default function QrScanScreen({
   /** Подключение прошло: экран серверов закрывается, приложение идёт дальше. */
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const { pairWithCode } = useApp();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export default function QrScanScreen({
       if (!parsed) {
         // Чужой квадратик — обычное дело: человек навёл камеру на первый
         // попавшийся код. Говорим словами и продолжаем искать свой.
-        setError('Это не код подключения Open NVR');
+        setError(t('qr.notPairingCode'));
         return;
       }
 
@@ -104,18 +106,18 @@ export default function QrScanScreen({
         // экраном, а не возвращаться сюда заново.
         handled.current = false;
         setBusy(false);
-        setError(e instanceof Error ? e.message : 'Не удалось подключиться');
+        setError(e instanceof Error ? e.message : t('qr.connectFailed'));
       }
     },
-    [pairWithCode, onDone],
+    [pairWithCode, onDone, t],
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Код подключения</Text>
+        <Text style={styles.title}>{t('qr.title')}</Text>
         <Pressable style={styles.headerButton} onPress={onBack}>
-          <Text style={styles.headerButtonText}>Отмена</Text>
+          <Text style={styles.headerButtonText}>{t('qr.cancel')}</Text>
         </Pressable>
       </View>
 
@@ -132,8 +134,7 @@ export default function QrScanScreen({
         ) : (
           <View style={styles.cameraPlaceholder}>
             <Text style={styles.placeholderText}>
-              Нет доступа к камере. Разрешите его в настройках телефона или
-              добавьте сервер вручную.
+              {t('qr.noCameraAccess')}
             </Text>
           </View>
         )}
@@ -144,8 +145,7 @@ export default function QrScanScreen({
       </View>
 
       <Text style={styles.hint}>
-        Наведите телефон на код в карточке пользователя на странице
-        «Пользователи». Код действует десять минут и срабатывает один раз.
+        {t('qr.hint')}
       </Text>
 
       {error && (
@@ -157,7 +157,7 @@ export default function QrScanScreen({
       {busy && (
         <View style={styles.busyRow}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={styles.busyText}>Подключаюсь к серверу…</Text>
+          <Text style={styles.busyText}>{t('qr.connecting')}</Text>
         </View>
       )}
     </View>

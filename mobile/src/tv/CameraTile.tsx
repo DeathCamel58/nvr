@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Video, { type OnVideoErrorData } from 'react-native-video';
+import { t } from '../i18n';
 import { joinUrl } from '../net/address';
 import { colors, radius, spacing } from '../theme';
 import type { Camera, StreamInfo } from '../types';
@@ -99,12 +100,12 @@ export default function CameraTile({
     if (retriesRef.current < 4) {
       const attempt = retriesRef.current;
       retriesRef.current += 1;
-      setError(attempt === 0 ? null : 'Переподключение…');
+      setError(attempt === 0 ? null : t('tv.reconnecting'));
       setTimeout(() => setReloadKey((value) => value + 1), 1500 * (attempt + 1));
       return;
     }
 
-    setError(message ? `Ошибка: ${message}` : 'Поток недоступен');
+    setError(message ? t('tv.streamError', { message }) : t('tv.streamUnavailable'));
   }, []);
 
   // Часы в углу плитки: показывают время сервера, а не устройства.

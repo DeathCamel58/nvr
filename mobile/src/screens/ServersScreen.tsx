@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { parseAddress, DEFAULT_PORT } from '../net/address';
 import { ApiClient, describeNetworkError } from '../net/api';
@@ -34,6 +35,7 @@ export default function ServersScreen({
 }: {
   onContinue: () => void;
 }) {
+  const { t } = useTranslation();
   const { servers, current, addServer, selectServer, removeServer, ready } =
     useApp();
   const [showAdd, setShowAdd] = useState(false);
@@ -54,7 +56,7 @@ export default function ServersScreen({
     try {
       const client = new ApiClient(profile.baseUrl);
       await client.health();
-      setStatuses((prev) => ({ ...prev, [profile.id]: 'Доступен' }));
+      setStatuses((prev) => ({ ...prev, [profile.id]: t('servers.reachable') }));
       return true;
     } catch (error) {
       const text = describeNetworkError(error);
@@ -63,7 +65,7 @@ export default function ServersScreen({
     } finally {
       setChecking(null);
     }
-  }, []);
+  }, [t]);
 
   // При открытии экрана проверяем сохранённые серверы сами: пользователь
   // сразу видит, какие из них живы, и не жмёт проверку вручную.
@@ -84,12 +86,12 @@ export default function ServersScreen({
 
   const handleDelete = (profile: ServerProfile) => {
     Alert.alert(
-      'Удалить сервер?',
-      `«${profile.name}» исчезнет из списка. Сохранённый вход для него тоже будет забыт.`,
+      t('servers.deleteTitle'),
+      t('servers.deleteMessage', { name: profile.name }),
       [
-        { text: 'Отмена', style: 'cancel' },
+        { text: t('servers.cancel'), style: 'cancel' },
         {
-          text: 'Удалить',
+          text: t('servers.delete'),
           style: 'destructive',
           onPress: () => void removeServer(profile.id),
         },
@@ -100,17 +102,16 @@ export default function ServersScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Серверы</Text>
+        <Text style={styles.title}>{t('servers.title')}</Text>
         <Text style={styles.subtitle}>
-          Выберите сервер или добавьте новый по адресу
+          {t('servers.subtitle')}
         </Text>
       </View>
       {servers.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Пока нет ни одного сервера</Text>
+          <Text style={styles.emptyTitle}>{t('servers.emptyTitle')}</Text>
           <Text style={styles.emptyText}>
-            Добавьте адрес сервера видеонаблюдения: подойдёт IP-адрес, имя в
-            локальной сети или доменное имя.
+            {t('servers.emptyText')}
           </Text>
         </View>
       ) : (
@@ -132,7 +133,7 @@ export default function ServersScreen({
                   <Text style={styles.cardName} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  {isCurrent && <Text style={styles.badgeCurrent}>выбран</Text>}
+                  {isCurrent && <Text style={styles.badgeCurrent}>{t('servers.selected')}</Text>}
                 </View>
                 <Text style={styles.cardUrl}>{item.baseUrl}</Text>
 
@@ -140,7 +141,7 @@ export default function ServersScreen({
                   {isChecking ? (
                     <View style={styles.statusRow}>
                       <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={styles.statusText}>Проверяю связь…</Text>
+                      <Text style={styles.statusText}>{t('servers.checking')}</Text>
                     </View>
                   ) : status ? (
                     <View style={styles.statusRow}>
@@ -148,7 +149,7 @@ export default function ServersScreen({
                         style={[
                           styles.dot,
                           {
-                            backgroundColor: status.startsWith('Доступен')
+                            backgroundColor: status.startsWith(t('servers.reachable'))
                               ? colors.success
                               : colors.danger,
                           },
@@ -159,7 +160,9 @@ export default function ServersScreen({
                       </Text>
                     </View>
                   ) : (
-                    <Text style={styles.statusMuted}>Связь не проверялась</Text>
+                    <Text style={styles.statusMuted}>
+                      {t('servers.notChecked')}
+                    </Text>
                   )}
                 </View>
               </Pressable>
@@ -175,13 +178,17 @@ export default function ServersScreen({
           style={styles.primaryButton}
           onPress={() => setShowScan(true)}
         >
-          <Text style={styles.primaryButtonText}>Подключить по QR-коду</Text>
+          <Text style={styles.primaryButtonText}>
+            {t('servers.connectByQr')}
+          </Text>
         </Pressable>
         <Pressable
           style={styles.secondaryButton}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={styles.secondaryButtonText}>Добавить сервер вручную</Text>
+          <Text style={styles.secondaryButtonText}>
+            {t('servers.addManually')}
+          </Text>
         </Pressable>
       </View>
 
@@ -232,6 +239,7 @@ function AddServerModal({
   addServer: (name: string, address: string, username?: string) => Promise<ServerProfile>;
   checkServer: (profile: ServerProfile) => Promise<boolean>;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [username, setUsername] = useState('');
@@ -267,7 +275,7 @@ function AddServerModal({
 
   const handleTest = async () => {
     if (!parsed) {
-      setResult({ ok: false, text: 'Проверьте адрес: не удалось разобрать' });
+      setResult({ ok: false, text: t('servers.badAddress') });
       return;
     }
     setTesting(true);
@@ -281,14 +289,14 @@ function AddServerModal({
     const ok = await checkServer(probe);
     setResult({
       ok,
-      text: ok ? 'Сервер отвечает' : 'Сервер не отвечает',
+      text: ok ? t('servers.serverResponds') : t('servers.serverNotResponding'),
     });
     setTesting(false);
   };
 
   const handleSave = async () => {
     if (!parsed) {
-      setResult({ ok: false, text: 'Проверьте адрес: не удалось разобрать' });
+      setResult({ ok: false, text: t('servers.badAddress') });
       return;
     }
     try {
@@ -312,7 +320,7 @@ function AddServerModal({
     } catch (error) {
       setResult({
         ok: false,
-        text: error instanceof Error ? error.message : 'Не удалось сохранить',
+        text: error instanceof Error ? error.message : t('servers.saveFailed'),
       });
     }
   };
@@ -333,18 +341,18 @@ function AddServerModal({
           contentContainerStyle={styles.modalContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.modalTitle}>Новый сервер</Text>
+          <Text style={styles.modalTitle}>{t('servers.newServer')}</Text>
 
-          <Text style={styles.label}>Название</Text>
+          <Text style={styles.label}>{t('servers.name')}</Text>
           <TextInput
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="Офис, Дача, Склад"
+            placeholder={t('servers.namePlaceholder')}
             placeholderTextColor={colors.textMuted}
           />
 
-          <Text style={styles.label}>Адрес сервера</Text>
+          <Text style={styles.label}>{t('servers.address')}</Text>
           <TextInput
             style={styles.input}
             value={address}
@@ -359,12 +367,11 @@ function AddServerModal({
             keyboardType="url"
           />
           <Text style={styles.hint}>
-            Можно указать IP-адрес, имя в сети или домен. Порт по умолчанию —{' '}
-            {DEFAULT_PORT}.
+            {t('servers.addressHint', { port: DEFAULT_PORT })}
           </Text>
 
           <View style={styles.switchRow}>
-            <Text style={styles.label}>Использовать HTTPS</Text>
+            <Text style={styles.label}>{t('servers.useHttps')}</Text>
             <Switch
               value={useHttps}
               onValueChange={(value) => {
@@ -377,12 +384,12 @@ function AddServerModal({
 
           {parsed && (
             <View style={styles.preview}>
-              <Text style={styles.previewLabel}>Итоговый адрес</Text>
+              <Text style={styles.previewLabel}>{t('servers.finalAddress')}</Text>
               <Text style={styles.previewValue}>{parsed.baseUrl}</Text>
             </View>
           )}
 
-          <Text style={styles.label}>Логин (необязательно)</Text>
+          <Text style={styles.label}>{t('servers.usernameOptional')}</Text>
           <TextInput
             style={styles.input}
             value={username}
@@ -393,10 +400,10 @@ function AddServerModal({
             autoCorrect={false}
           />
           <Text style={styles.hint}>
-            Логин подставится на экране входа. Пароль здесь не сохраняется.
+            {t('servers.usernameHint')}
           </Text>
 
-          <Text style={styles.label}>Код подключения (необязательно)</Text>
+          <Text style={styles.label}>{t('servers.codeOptional')}</Text>
           <TextInput
             style={styles.input}
             value={code}
@@ -410,9 +417,7 @@ function AddServerModal({
             autoCorrect={false}
           />
           <Text style={styles.hint}>
-            Возьмите его в карточке пользователя: на странице «Пользователи»
-            нажмите «Подключить приложение». С кодом пароль не нужен — вход
-            выполнится сразу.
+            {t('servers.codeHint')}
           </Text>
 
           {result && (
@@ -439,7 +444,9 @@ function AddServerModal({
             {testing ? (
               <ActivityIndicator size="small" color={colors.text} />
             ) : (
-              <Text style={styles.secondaryButtonText}>Проверить связь</Text>
+              <Text style={styles.secondaryButtonText}>
+                {t('servers.checkConnection')}
+              </Text>
             )}
           </Pressable>
 
@@ -448,7 +455,9 @@ function AddServerModal({
             onPress={() => void handleSave()}
             disabled={!parsed}
           >
-            <Text style={styles.primaryButtonText}>Сохранить и подключиться</Text>
+            <Text style={styles.primaryButtonText}>
+              {t('servers.saveAndConnect')}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -458,7 +467,7 @@ function AddServerModal({
               onClose();
             }}
           >
-            <Text style={styles.textButtonText}>Отмена</Text>
+            <Text style={styles.textButtonText}>{t('servers.cancel')}</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

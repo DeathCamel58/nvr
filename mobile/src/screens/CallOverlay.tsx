@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
+import { useTranslation } from 'react-i18next';
 
 import { useSip } from '../state/SipContext';
 import { colors, radius, spacing } from '../theme';
@@ -17,6 +18,7 @@ import { colors, radius, spacing } from '../theme';
  * телефонного звонка перед обычным аудио.
  */
 export default function CallOverlay() {
+  const { t } = useTranslation();
   const { snapshot, answer, hangup, setMuted, setSpeaker, sendTone, openDoor } = useSip();
   const call = snapshot.call;
   const [tonePad, setTonePad] = useState(false);
@@ -54,8 +56,8 @@ export default function CallOverlay() {
   const hasVideoTrack =
     (snapshot.remoteStream?.getVideoTracks?.().length ?? 0) > 0 || call.remoteVideo;
   const title = incoming
-    ? call.peerName || call.peer || 'Входящий вызов'
-    : call.peerName || call.peer || 'Вызов';
+    ? call.peerName || call.peer || t('callOverlay.incomingCall')
+    : call.peerName || call.peer || t('callOverlay.call');
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60)
@@ -77,7 +79,11 @@ export default function CallOverlay() {
       ) : (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderText}>
-            {incoming ? 'Входящий вызов' : active ? 'Разговор' : 'Дозвон…'}
+            {incoming
+              ? t('callOverlay.incomingCall')
+              : active
+              ? t('callOverlay.inCall')
+              : t('callOverlay.dialing')}
           </Text>
         </View>
       )}
@@ -87,13 +93,13 @@ export default function CallOverlay() {
         <Text style={styles.state}>
           {incoming
             ? preview
-              ? 'видно гостя · микрофон выключен'
-              : 'звонит'
+              ? t('callOverlay.previewMuted')
+              : t('callOverlay.ringing')
             : active
             ? formatTime(elapsed)
             : call.state === 'ending'
-            ? 'завершение…'
-            : 'дозвон…'}
+            ? t('callOverlay.ending')
+            : t('callOverlay.dialingShort')}
         </Text>
         {!!call.error && <Text style={styles.error}>{call.error}</Text>}
         {/* Состав потока виден на экране: пока видеосвязь настраивается,
@@ -101,8 +107,10 @@ export default function CallOverlay() {
             картинка и на каком шаге она теряется. */}
         {!!snapshot.remoteStream && (
           <Text style={styles.diag}>
-            поток: {snapshot.remoteStream.getTracks().map((t) => t.kind).join('+')}
-            {hasVideoTrack ? ' · видео есть' : ' · собеседник без видео'}
+            {t('callOverlay.stream', {
+              tracks: snapshot.remoteStream.getTracks().map((track) => track.kind).join('+'),
+            })}
+            {hasVideoTrack ? t('callOverlay.hasVideo') : t('callOverlay.noPeerVideo')}
           </Text>
         )}
       </View>
@@ -152,7 +160,7 @@ export default function CallOverlay() {
           }}
         >
           <Text style={styles.openDoorText}>
-            {doorSent ? 'Код отправлен' : 'Открыть дверь'}
+            {doorSent ? t('callOverlay.codeSent') : t('callOverlay.openDoor')}
           </Text>
         </Pressable>
       )}
@@ -161,10 +169,10 @@ export default function CallOverlay() {
         {incoming ? (
           <>
             <Pressable style={[styles.button, styles.decline]} onPress={hangup}>
-              <Text style={styles.buttonText}>Отклонить</Text>
+              <Text style={styles.buttonText}>{t('callOverlay.decline')}</Text>
             </Pressable>
             <Pressable style={[styles.button, styles.accept]} onPress={() => answer({ video: true })}>
-              <Text style={styles.buttonText}>Ответить</Text>
+              <Text style={styles.buttonText}>{t('callOverlay.answer')}</Text>
             </Pressable>
           </>
         ) : (
@@ -173,13 +181,13 @@ export default function CallOverlay() {
               style={[styles.button, styles.secondary, call.muted && styles.secondaryOn]}
               onPress={() => setMuted(!call.muted)}
             >
-              <Text style={styles.buttonText}>{call.muted ? 'Микрофон выкл' : 'Микрофон'}</Text>
+              <Text style={styles.buttonText}>{call.muted ? t('callOverlay.microphoneOff') : t('callOverlay.microphone')}</Text>
             </Pressable>
             <Pressable
               style={[styles.button, styles.secondary, snapshot.speakerOn && styles.secondaryOn]}
               onPress={() => setSpeaker(!snapshot.speakerOn)}
             >
-              <Text style={styles.buttonText}>Громкая</Text>
+              <Text style={styles.buttonText}>{t('callOverlay.speaker')}</Text>
             </Pressable>
             {/* DTMF нужен панелям: они открывают дверь кодом, и из приложения
                 это единственный способ впустить человека. */}
@@ -187,10 +195,10 @@ export default function CallOverlay() {
               style={[styles.button, styles.secondary, tonePad && styles.secondaryOn]}
               onPress={() => setTonePad(!tonePad)}
             >
-              <Text style={styles.buttonText}>Код</Text>
+              <Text style={styles.buttonText}>{t('callOverlay.code')}</Text>
             </Pressable>
             <Pressable style={[styles.button, styles.decline]} onPress={hangup}>
-              <Text style={styles.buttonText}>Завершить</Text>
+              <Text style={styles.buttonText}>{t('callOverlay.hangUp')}</Text>
             </Pressable>
           </>
         )}

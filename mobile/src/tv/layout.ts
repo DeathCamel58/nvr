@@ -9,6 +9,8 @@
  * («четыре камеры у входа») и ночной («одна камера на весь экран»).
  */
 
+import { t } from '../i18n';
+
 /** Сколько камер показывать одновременно. */
 export type GridSize = 1 | 2 | 4 | 6 | 9 | 16 | 25;
 
@@ -85,7 +87,7 @@ export interface TvLayout {
 }
 
 /** Раскладка по умолчанию: сетка 2×2 без звука. */
-export function defaultLayout(name = 'Основная'): TvLayout {
+export function defaultLayout(name = t('tv.defaultLayoutName')): TvLayout {
   return {
     id: `lay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     name,

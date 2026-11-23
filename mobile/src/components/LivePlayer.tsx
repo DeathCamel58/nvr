@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Video from 'react-native-video';
 import { RTCView } from 'react-native-webrtc';
 import type { ApiClient } from '../net/api';
@@ -53,9 +54,10 @@ export default function LivePlayer({
    */
   onFailed?: () => void;
 }) {
+  const { t } = useTranslation();
   const [transport, setTransport] = useState<'webrtc' | 'hls'>('webrtc');
   const [session, setSession] = useState<LiveSession | null>(null);
-  const [status, setStatus] = useState<string | null>('Соединяюсь…');
+  const [status, setStatus] = useState<string | null>(t('player.connecting'));
   const hlsRetriesRef = useRef(0);
   const [hlsReloadKey, setHlsReloadKey] = useState(0);
 
@@ -66,7 +68,7 @@ export default function LivePlayer({
 
     let cancelled = false;
     let opened: LiveSession | null = null;
-    setStatus('Соединяюсь…');
+    setStatus(t('player.connecting'));
 
     (async () => {
       try {
@@ -83,7 +85,7 @@ export default function LivePlayer({
         if (cancelled) return;
         // Причину не показываем: для оператора важно, что видео будет,
         // а не каким транспортом. Подробность остаётся в подписи внизу.
-        setStatus('WebRTC не поднялся, перехожу на резервный транспорт…');
+        setStatus(t('player.fallback'));
         setTransport('hls');
         onTransport?.('hls');
       }
@@ -96,7 +98,7 @@ export default function LivePlayer({
       opened?.close();
       setSession(null);
     };
-  }, [client, cameraId, sub, transport, micCodec, onTransport]);
+  }, [client, cameraId, sub, transport, micCodec, onTransport, t]);
 
   const hlsUrl = useMemo(() => {
     if (!hlsPath || !token) return null;

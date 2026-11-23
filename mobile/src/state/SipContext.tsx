@@ -19,6 +19,7 @@ import React, {
 import { Alert, AppState } from 'react-native';
 
 import { useApp } from './AppContext';
+import { t } from '../i18n';
 import { SipClient } from '../net/sipClient';
 import type { SipLineInfo, SipSnapshot } from '../net/sipClient';
 import { ensureCallPermissions } from '../net/permissions';
@@ -201,7 +202,7 @@ export function SipProvider({ children }: { children: React.ReactNode }) {
       const info = await client.getMyLine();
       setLine(info);
       if (!info) {
-        setError('Телефония на сервере не настроена');
+        setError(t('sip.telephonyNotConfigured'));
       } else if (clientRef.current?.needsRenewal()) {
         // Реквизиты есть, а линии может не быть: сокет рвётся, когда
         // приложение сворачивают или замораживают. Заводим линию заново
@@ -210,7 +211,7 @@ export function SipProvider({ children }: { children: React.ReactNode }) {
         clientRef.current.restart('экран звонков: линии нет');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'не удалось получить линию');
+      setError(e instanceof Error ? e.message : t('sip.lineFetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -252,7 +253,10 @@ export function SipProvider({ children }: { children: React.ReactNode }) {
     // система не должна останавливать приложение, иначе входящий вызов
     // придёт только при открытом экране.
     void ensureNotificationPermission().then(async () => {
-      startForeground('Домофония', `Линия ${line.number} · подключение…`);
+      startForeground(
+        t('sip.notificationTitle'),
+        t('sip.lineConnecting', { number: line.number }),
+      );
       // Заодно проверяем право на работу в фоне. Если его нет — предлагаем
       // выдать: без него прошивка замораживает приложение в фоне, и вызовы
       // не доходят, при том что снаружи всё выглядит исправным.
@@ -390,27 +394,27 @@ export function SipProvider({ children }: { children: React.ReactNode }) {
       if (snapshot.call.state === 'incoming') {
         wakeScreen();
         showIncomingCall(
-          snapshot.call.peerName || snapshot.call.peer || 'Входящий вызов',
-          'Домофония',
+          snapshot.call.peerName || snapshot.call.peer || t('sip.incomingCall'),
+          t('sip.notificationTitle'),
         );
       } else {
         // Ответили или вызов завершился — экран вызова больше не нужен.
         clearIncomingCall();
       }
       updateForeground(
-        snapshot.call.state === 'incoming' ? 'Входящий вызов' : 'Звонок',
-        snapshot.call.peerName || snapshot.call.peer || 'Домофония',
+        snapshot.call.state === 'incoming' ? t('sip.incomingCall') : t('sip.callTitle'),
+        snapshot.call.peerName || snapshot.call.peer || t('sip.notificationTitle'),
       );
       return;
     }
     clearIncomingCall();
     const text =
       snapshot.registration === 'registered'
-        ? `Линия ${line.number} · на связи`
+        ? t('sip.lineOnline', { number: line.number })
         : snapshot.registration === 'failed'
-        ? `Линия ${line.number} · нет связи`
-        : `Линия ${line.number} · подключение…`;
-    updateForeground('Домофония', text);
+        ? t('sip.lineOffline', { number: line.number })
+        : t('sip.lineConnecting', { number: line.number });
+    updateForeground(t('sip.notificationTitle'), text);
   }, [line, snapshot.call, snapshot.registration]);
 
   const call = useCallback((target: string, options?: { video?: boolean }) => {
@@ -423,8 +427,8 @@ export function SipProvider({ children }: { children: React.ReactNode }) {
       const permissions = await ensureCallPermissions(withVideo);
       if (!permissions.audio) {
         Alert.alert(
-          'Нужен доступ к микрофону',
-          'Разрешите приложению доступ к микрофону в настройках телефона — иначе звонок не состоится.',
+          t('sip.microphoneRequiredTitle'),
+          t('sip.microphoneRequiredCall'),
         );
         return;
       }
@@ -441,7 +445,7 @@ export function SipProvider({ children }: { children: React.ReactNode }) {
       void (async () => {
         const permissions = await ensureCallPermissions(withVideo);
         if (!permissions.audio) {
-          Alert.alert('Нужен доступ к микрофону', 'Без микрофона ответить на вызов нельзя.');
+          Alert.alert(t('sip.microphoneRequiredTitle'), t('sip.microphoneRequiredAnswer'));
           return;
         }
         clientRef.current?.answer({ video: permissions.video });

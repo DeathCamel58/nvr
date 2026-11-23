@@ -1,0 +1,25 @@
+const access = {
+  openDoorTitle: 'Open the door?',
+  cancel: 'Cancel',
+  open: 'Open',
+  title: 'Access',
+  toCameras: 'To cameras',
+  tabDoors: 'Doors',
+  tabEvents: 'Events',
+  noControllers: 'No controllers found',
+  online: 'online',
+  offline: 'offline',
+  noEvents: 'No events yet',
+  cardNotSpecified: 'card not specified',
+  mediaClip: 'video',
+  mediaSnapshot: 'snapshot',
+  eventPassage: 'Passage',
+  eventAccessGranted: 'Access granted',
+  eventAccessDenied: 'Access denied',
+  eventRemoteOpen: 'Opened manually',
+  eventDoorForced: 'Door forced',
+  eventDoorOpen: 'Door open',
+  eventDoorClosed: 'Door closed',
+};
+
+export default access;

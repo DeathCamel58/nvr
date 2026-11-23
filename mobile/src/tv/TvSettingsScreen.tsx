@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { colors, radius, spacing } from '../theme';
@@ -32,6 +33,7 @@ export default function TvSettingsScreen({
   onChange: (layout: TvLayout) => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const { client } = useApp();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,8 +87,8 @@ export default function TvSettingsScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Настройки экрана</Text>
-        <TvButton title="Готово" variant="primary" onPress={onBack} />
+        <Text style={styles.headerTitle}>{t('tv.screenSettings')}</Text>
+        <TvButton title={t('tv.done')} variant="primary" onPress={onBack} />
       </View>
 
       {error && (
@@ -96,58 +98,56 @@ export default function TvSettingsScreen({
       )}
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.sectionTitle}>Что показывать на плитке</Text>
+        <Text style={styles.sectionTitle}>{t('tv.tileContent')}</Text>
 
         <ToggleRow
-          title="Имя камеры"
-          hint="Подпись внизу плитки. Удобно, когда камер много и их легко перепутать."
+          title={t('tv.showNameTitle')}
+          hint={t('tv.showNameHint')}
           value={layout.overlay.showNames}
           onChange={(value) => patchOverlay({ showNames: value })}
         />
 
         <ToggleRow
-          title="Состояние связи"
-          hint="Цветной значок в углу. Пропавшая камера выглядит как чёрный прямоугольник — без значка непонятно, сломалось приложение или камера."
+          title={t('tv.showStatusTitle')}
+          hint={t('tv.showStatusHint')}
           value={layout.overlay.showStatus}
           onChange={(value) => patchOverlay({ showStatus: value })}
         />
 
         <ToggleRow
-          title="Часы"
-          hint="Время кадра. По нему сразу видно, что поток отстал: замершую картинку ничто другое не выдаёт."
+          title={t('tv.showClockTitle')}
+          hint={t('tv.showClockHint')}
           value={layout.overlay.showClock}
           onChange={(value) => patchOverlay({ showClock: value })}
         />
 
-        <Text style={styles.sectionTitle}>Кнопка «ОК» на плитке</Text>
+        <Text style={styles.sectionTitle}>{t('tv.okButtonTitle')}</Text>
         <View style={styles.row}>
           <View style={styles.rowBody}>
-            <Text style={styles.rowTitle}>Что делать при нажатии</Text>
+            <Text style={styles.rowTitle}>{t('tv.okActionTitle')}</Text>
             <Text style={styles.rowHint}>
-              Открыть камеру на весь экран или переключить её звук. Второй
-              вариант удобен, когда звук нужен часто: не нужно каждый раз
-              выходить из полноэкранного просмотра.
+              {t('tv.okActionHint')}
             </Text>
           </View>
         </View>
         <View style={styles.choiceRow}>
           <TvButton
-            title="Открыть на весь экран"
+            title={t('tv.openFullscreen')}
             variant={layout.enterAction === 'fullscreen' ? 'primary' : 'default'}
             onPress={() => onChange({ ...layout, enterAction: 'fullscreen' })}
           />
           <TvButton
-            title="Переключить звук"
+            title={t('tv.toggleSound')}
             variant={layout.enterAction === 'sound' ? 'primary' : 'default'}
             onPress={() => onChange({ ...layout, enterAction: 'sound' })}
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Звук</Text>
+        <Text style={styles.sectionTitle}>{t('tv.sound')}</Text>
 
         <ToggleRow
-          title="Звук включён"
-          hint="На телевизоре слышно только выбранную камеру: несколько источников сливаются в шум."
+          title={t('tv.soundEnabledTitle')}
+          hint={t('tv.soundEnabledHint')}
           value={layout.sound.enabled}
           onChange={(value) => patchSound({ enabled: value })}
         />
@@ -155,7 +155,7 @@ export default function TvSettingsScreen({
         <View style={styles.row}>
           <View style={styles.rowBody}>
             <Text style={styles.rowTitle}>
-              Громкость: {Math.round(layout.sound.volume * 100)}%
+              {t('tv.volume', { percent: Math.round(layout.sound.volume * 100) })}
             </Text>
             <View style={styles.volumeRow}>
               {[0.2, 0.4, 0.6, 0.8, 1].map((value) => (
@@ -172,16 +172,14 @@ export default function TvSettingsScreen({
               ))}
             </View>
             <Text style={styles.rowHint}>
-              Громкость применяется к звуковому потоку камеры. Регулировать
-              её пультом удобнее крупными шагами, поэтому кнопки, а не ползунок.
+              {t('tv.volumeHint')}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Звук какой камеры слышно</Text>
+        <Text style={styles.sectionTitle}>{t('tv.soundCameraTitle')}</Text>
         <Text style={styles.sectionHint}>
-          Одновременно звучит только одна камера. У камер без микрофона
-          звуковой поток не запустится — это нормально.
+          {t('tv.soundCameraHint')}
         </Text>
 
         {loading ? (
@@ -250,6 +248,7 @@ function SoundRow({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
 
   return (
@@ -268,8 +267,8 @@ function SoundRow({
           {camera.name}
         </Text>
         <Text style={styles.rowHint}>
-          {camera.ip || 'адрес не указан'}
-          {camera.status !== 'online' ? ' · не в сети' : ''}
+          {camera.ip || t('tv.noAddress')}
+          {camera.status !== 'online' ? t('tv.offlineSuffix') : ''}
         </Text>
       </View>
       {selected && <Text style={styles.soundMark}>🔊</Text>}

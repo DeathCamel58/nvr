@@ -17,6 +17,7 @@
 import { NativeModules, Platform } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 
+import { t } from '../i18n';
 import { emitIncomingCall } from './push';
 
 /** Нативные вызовы службы: работают и без отрисованного интерфейса. */
@@ -46,7 +47,7 @@ export function installBackgroundPush(): void {
     // Показываем вызов на весь экран: это и будит аппарат, и даёт человеку
     // кнопку ответа, даже если интерфейс приложения ещё не поднялся.
     try {
-      native?.incomingCall('Звонок в домофон', 'Кто-то звонит — ответьте или откройте дверь');
+      native?.incomingCall(t('net.intercomCallTitle'), t('net.intercomCallText'));
     } catch {
       // Прошивка может запретить полноэкранное уведомление — тогда остаётся
       // попытка поднять активность ниже.

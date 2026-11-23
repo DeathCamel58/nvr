@@ -7,6 +7,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { colors, radius, spacing } from '../theme';
@@ -31,6 +33,7 @@ export default function TvLayoutScreen({
   onSave: (layout: TvLayout) => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const { client } = useApp();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,10 +109,10 @@ export default function TvLayoutScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Раскладка</Text>
+        <Text style={styles.headerTitle}>{t('tv.layout')}</Text>
         <View style={styles.headerActions}>
-          <TvButton title="Сохранить" variant="primary" onPress={save} />
-          <TvButton title="Отмена" onPress={onBack} />
+          <TvButton title={t('tv.save')} variant="primary" onPress={save} />
+          <TvButton title={t('tv.cancel')} onPress={onBack} />
         </View>
       </View>
 
@@ -120,13 +123,13 @@ export default function TvLayoutScreen({
       )}
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.sectionTitle}>Сколько камер показывать</Text>
+        <Text style={styles.sectionTitle}>{t('tv.howManyCameras')}</Text>
         <View style={styles.section}>
           <View style={styles.sizeRow}>
             {GRID_SIZES.map((value) => (
               <TvButton
                 key={value}
-                title={sizeLabel(value)}
+                title={sizeLabel(value, t)}
                 variant={size === value ? 'primary' : 'default'}
                 onPress={() => changeSize(value)}
               />
@@ -135,13 +138,10 @@ export default function TvLayoutScreen({
         </View>
 
         <Text style={styles.sectionTitle}>
-          Камеры в раскладке: выбрано {selected.length} из {size}
+          {t('tv.layoutCamerasSelected', { selected: selected.length, size })}
         </Text>
         <Text style={styles.sectionHint}>
-          Порядок выбора задаёт расположение: первая камера встанет в левый
-          верхний угол. При плотной сетке ({DENSE_GRID_MIN_SIZE} камер и больше)
-          подписи на плитках скрываются: в мелкой плитке они заслоняют
-          изображение.
+          {t('tv.layoutOrderHint', { min: DENSE_GRID_MIN_SIZE })}
         </Text>
 
         {loading ? (
@@ -191,6 +191,7 @@ function CameraRow({
   disabled: boolean;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
 
   return (
@@ -216,21 +217,21 @@ function CameraRow({
           {camera.name}
         </Text>
         <Text style={styles.rowMeta}>
-          {camera.ip || 'адрес не указан'}
-          {camera.status !== 'online' ? ' · не в сети' : ''}
+          {camera.ip || t('tv.noAddress')}
+          {camera.status !== 'online' ? t('tv.offlineSuffix') : ''}
         </Text>
       </View>
 
-      {disabled && <Text style={styles.rowLimit}>Сетка заполнена</Text>}
+      {disabled && <Text style={styles.rowLimit}>{t('tv.gridFull')}</Text>}
     </Pressable>
   );
 }
 
 /** Подпись для размера сетки. */
-function sizeLabel(size: GridSize): string {
-  if (size === 1) return 'Одна';
-  if (size === 2) return 'Две';
-  return `${size} кaмер`;
+function sizeLabel(size: GridSize, t: TFunction): string {
+  if (size === 1) return t('tv.sizeLabelOne');
+  if (size === 2) return t('tv.sizeLabelTwo');
+  return t('tv.sizeLabelCount', { count: size });
 }
 
 const styles = StyleSheet.create({

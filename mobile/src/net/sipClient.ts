@@ -18,6 +18,7 @@ import { MediaStream, mediaDevices } from 'react-native-webrtc';
 import type { MediaStreamTrack } from 'react-native-webrtc';
 
 import { installSipPolyfills } from './sipPolyfills';
+import { t } from '../i18n';
 
 // Подробный журнал SIP-стека.
 //
@@ -328,7 +329,7 @@ export class SipClient {
     });
     ua.on('disconnected', () => {
       if (!isCurrent()) return;
-      this.update({ registration: 'connecting', registrationError: 'связь с сервером прервана' });
+      this.update({ registration: 'connecting', registrationError: t('sip.serverConnectionLost') });
       this.note('disconnected');
       this.scheduleRecovery();
     });
@@ -460,7 +461,7 @@ export class SipClient {
       // Клиента нет вовсе — это не «позвонили и не дозвонились», а
       // «звонить нечем». Молчание хуже всего: оператор нажимает кнопку и не
       // понимает, почему ничего не происходит.
-      this.reportCallFailure(target, wantVideo, 'линия не подключена: нет связи со станцией');
+      this.reportCallFailure(target, wantVideo, t('sip.lineNotConnected'));
       return;
     }
     if (this.state.call) {
@@ -482,7 +483,7 @@ export class SipClient {
     void (async () => {
       const stream = await this.acquireMedia(wantVideo);
       if (!stream) {
-        this.reportCallFailure(target, wantVideo, 'телефон не выдал микрофон');
+        this.reportCallFailure(target, wantVideo, t('sip.noMicrophone'));
         return;
       }
       // Пока ждали медиа, клиента могли пересоздать (например, возврат в
@@ -511,7 +512,7 @@ export class SipClient {
         this.reportCallFailure(
           target,
           wantVideo,
-          error instanceof Error ? error.message : 'не удалось начать вызов',
+          error instanceof Error ? error.message : t('sip.callStartFailed'),
         );
       }
     })();
@@ -637,7 +638,7 @@ export class SipClient {
           ? {
               ...this.state.call,
               state: 'ending',
-              error: error instanceof Error ? error.message : 'не удалось ответить',
+              error: error instanceof Error ? error.message : t('sip.answerFailed'),
             }
           : null,
       });
@@ -961,7 +962,7 @@ export class SipClient {
       // молча оказывалась станция, хотя до неё ничего не доходило.
       this.finishWithReason(
         session,
-        'вызов не отправлен: телефон не выдал медиа или не закончил подготовку сети',
+        t('sip.inviteNotSent'),
       );
       setTimeout(() => this.restart('сторож: INVITE не ушёл'), 4500);
     }, INVITE_TIMEOUT_MS);
@@ -980,7 +981,7 @@ export class SipClient {
       if (this.session !== session) {
         return;
       }
-      this.finishWithReason(session, 'станция не отвечает: ответа нет 10 с, вызов отменён');
+      this.finishWithReason(session, t('sip.stationNotResponding'));
       setTimeout(() => this.restart('сторож: станция не ответила'), 4500);
     }, RESPONSE_TIMEOUT_MS);
   }
@@ -1329,7 +1330,7 @@ export class SipClient {
       this.note(`вызов не состоялся: ${event?.cause || 'без причины'}`);
       this.update({
         call: this.state.call
-          ? { ...this.state.call, state: 'ending', error: event?.cause || 'вызов не состоялся' }
+          ? { ...this.state.call, state: 'ending', error: event?.cause || t('sip.callFailed') }
           : null,
       });
       // Даём интерфейсу показать причину, а затем убираем звонок: оставить
@@ -1355,14 +1356,14 @@ export class SipClient {
     // заново в интерфейсе, а телефон помнит старый. Об этом и говорим.
     const code = event?.response?.status_code;
     if (code === 401 || code === 403) {
-      return 'сервер отклонил пароль линии: выйдите и войдите заново';
+      return t('sip.passwordRejected');
     }
     if (code === 404) {
-      return 'сервер не знает такой линии: она не заведена в настройках домофонии';
+      return t('sip.unknownLine');
     }
     return event?.cause === 'Rejected'
-      ? 'сервер отклонил регистрацию'
-      : 'не удалось зарегистрироваться на Asterisk';
+      ? t('sip.registrationRejected')
+      : t('sip.registrationFailed');
   }
 
   private update(partial: Partial<SipSnapshot>): void {

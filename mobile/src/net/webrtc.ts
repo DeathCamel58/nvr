@@ -4,6 +4,7 @@ import {
   mediaDevices,
   type MediaStream,
 } from 'react-native-webrtc';
+import { t } from '../i18n';
 import type { ApiClient } from './api';
 
 /**
@@ -154,7 +155,7 @@ function withTimeout<T>(source: Promise<T>, timeoutMs: number, onTimeout: () => 
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
       onTimeout();
-      reject(new Error('Поток не начал воспроизводиться'));
+      reject(new Error(t('net.streamNotStarted')));
     }, timeoutMs);
 
     source.then(

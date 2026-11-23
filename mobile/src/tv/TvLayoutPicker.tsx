@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { colors, radius, spacing } from '../theme';
 import TvButton from './TvButton';
 import type { TvLayout } from './layout';
@@ -26,13 +28,14 @@ export default function TvLayoutPicker({
   onRemove: (id: string) => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Раскладки</Text>
+        <Text style={styles.headerTitle}>{t('tv.layouts')}</Text>
         <View style={styles.headerActions}>
-          <TvButton title="Создать" variant="primary" onPress={onCreate} />
-          <TvButton title="Назад" onPress={onBack} />
+          <TvButton title={t('tv.create')} variant="primary" onPress={onCreate} />
+          <TvButton title={t('tv.back')} onPress={onBack} />
         </View>
       </View>
 
@@ -68,6 +71,7 @@ function LayoutRow({
   onSelect: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
 
   return (
@@ -84,11 +88,13 @@ function LayoutRow({
       <View style={styles.rowBody}>
         <View style={styles.rowTitleLine}>
           <Text style={styles.rowTitle}>{layout.name}</Text>
-          {active && <Text style={styles.activeMark}>текущая</Text>}
+          {active && <Text style={styles.activeMark}>{t('tv.currentLayout')}</Text>}
         </View>
         <Text style={styles.rowMeta}>
-          {sizeText(layout.size)} · камер: {layout.cameraIds.length}
-          {layout.sound.enabled ? ' · звук включён' : ''}
+          {t(layout.sound.enabled ? 'tv.layoutMetaSound' : 'tv.layoutMeta', {
+            size: sizeText(layout.size, t),
+            cameras: layout.cameraIds.length,
+          })}
         </Text>
       </View>
 
@@ -97,7 +103,7 @@ function LayoutRow({
           onPress={onRemove}
           style={({ pressed }) => [styles.remove, pressed && styles.removePressed]}
         >
-          <Text style={styles.removeText}>Удалить</Text>
+          <Text style={styles.removeText}>{t('tv.remove')}</Text>
         </Pressable>
       )}
     </Pressable>
@@ -105,10 +111,10 @@ function LayoutRow({
 }
 
 /** Подпись размера сетки. */
-function sizeText(size: number): string {
-  if (size === 1) return 'одна камера';
-  if (size === 2) return 'две камеры';
-  return `камер: ${size}`;
+function sizeText(size: number, t: TFunction): string {
+  if (size === 1) return t('tv.sizeOne');
+  if (size === 2) return t('tv.sizeTwo');
+  return t('tv.sizeMany', { size });
 }
 
 const styles = StyleSheet.create({
