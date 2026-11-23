@@ -9,7 +9,7 @@
  * («четыре камеры у входа») и ночной («одна камера на весь экран»).
  */
 
-import { t } from '../i18n';
+import { LANGUAGES, t } from '../i18n';
 
 /** Сколько камер показывать одновременно. */
 export type GridSize = 1 | 2 | 4 | 6 | 9 | 16 | 25;
@@ -112,6 +112,17 @@ export function defaultLayout(name = t('tv.defaultLayoutName')): TvLayout {
 }
 
 /**
+ * Имя «Основная» раскладке давало само приложение, а не оператор. Оно
+ * лежит на диске в языке, который был тогда: после смены языка телефона
+ * его показывают на текущем. Имена, которые дал оператор, не меняются.
+ */
+function localizeGeneratedName(stored: string | undefined, current: string): string {
+  if (!stored) return current;
+  const generated = LANGUAGES.map((lng) => t('tv.defaultLayoutName', { lng }));
+  return generated.includes(stored) ? current : stored;
+}
+
+/**
  * Приводит раскладку к согласованному виду.
  *
  * Нужна после чтения с диска: файл мог остаться от прежней версии, и в
@@ -129,7 +140,7 @@ export function normalizeLayout(input: Partial<TvLayout> | null | undefined): Tv
 
   return {
     id: input.id ?? base.id,
-    name: input.name?.trim() || base.name,
+    name: localizeGeneratedName(input.name?.trim(), base.name),
     size,
     // Камер не может быть больше, чем плиток: лишние всё равно не покажутся,
     // а в списке настроек они сбивали бы с толку.

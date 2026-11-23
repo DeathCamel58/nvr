@@ -15,6 +15,25 @@ import {
  * через отрисовку экранов было бы дорого и хрупко.
  */
 
+describe('имя раскладки, данное приложением', () => {
+  const { default: i18n } = require('../src/i18n');
+
+  afterEach(() => i18n.changeLanguage('ru'));
+
+  it('показывается на текущем языке, даже если записано на другом', async () => {
+    await i18n.changeLanguage('en');
+    expect(normalizeLayout({ name: 'Основная' }).name).toBe('Main');
+    await i18n.changeLanguage('ru');
+    expect(normalizeLayout({ name: 'Main' }).name).toBe('Основная');
+  });
+
+  it('имя, данное оператором, не меняется', async () => {
+    await i18n.changeLanguage('en');
+    expect(normalizeLayout({ name: 'Гостиная' }).name).toBe('Гостиная');
+    expect(normalizeLayout({ name: 'Garage' }).name).toBe('Garage');
+  });
+});
+
 describe('раскладка по умолчанию', () => {
   it('создаётся пустой, без камер', () => {
     const layout = defaultLayout();
