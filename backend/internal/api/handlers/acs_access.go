@@ -61,7 +61,24 @@ func (h *ACSAccessHandler) ListHolders(w http.ResponseWriter, r *http.Request) {
 	if holders == nil {
 		holders = []domain.ACSHolder{}
 	}
-	writeJSON(w, http.StatusOK, holders)
+
+	// Владелец виден, если у него есть права хотя бы на один доступный
+	// контроллер. Список маленький (десятки человек), поэтому фильтр
+	// считается в памяти, а не отдельным запросом на каждого: так он не
+	// разойдётся с карточкой владельца.
+	allowed := acsReachableControllers(r, h.guard)
+	visible := make([]domain.ACSHolder, 0, len(holders))
+	for _, holder := range holders {
+		// Карточка нужна ради итоговых прав: в списке двери не читаются.
+		full, err := h.svc.GetHolder(r.Context(), holder.ID)
+		if err != nil {
+			continue
+		}
+		if holderHasAllowedDoor(full, allowed) {
+			visible = append(visible, holder)
+		}
+	}
+	writeJSON(w, http.StatusOK, visible)
 }
 
 // GetHolder читает владельца со картами, группами и правами.
@@ -77,7 +94,33 @@ func (h *ACSAccessHandler) GetHolder(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 		return
 	}
+	// Карточка чужого владельца отвечает «не найдено»: иначе по ответу
+	// можно перечислить всех, кто заведён в СКУД.
+	if !holderHasAllowedDoor(holder, acsReachableControllers(r, h.guard)) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "владелец не найден"})
+		return
+	}
 	writeJSON(w, http.StatusOK, holder)
+}
+
+// holderHasAllowedDoor — общая проверка для карточки и фотографии.
+//
+// nil в allowed означает полный доступ. Владелец без дверей виден только
+// с полным доступом.
+func holderHasAllowedDoor(holder *domain.ACSHolder, allowed []uuid.UUID) bool {
+	if allowed == nil {
+		return true
+	}
+	if holder == nil {
+		return false
+	}
+	set := controllerFilterSet(allowed)
+	for _, door := range holder.Doors {
+		if _, ok := set[door.ControllerID]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateHolder заводит владельца карты.
@@ -216,6 +259,12 @@ func (h *ACSAccessHandler) HolderPhoto(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "фотография не найдена"})
 		return
 	}
+	// Фотография — тоже персональные данные: без права видеть владельца
+	// картинка не отдаётся, и ответ не отличается от «файла нет».
+	if !holderHasAllowedDoor(holder, acsReachableControllers(r, h.guard)) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "фотография не найдена"})
+		return
+	}
 	if h.storage == nil {
 		writeJSON(w, http.StatusServiceUnavailable,
 			map[string]string{"error": "хранилище недоступно"})
@@ -295,7 +344,39 @@ func (h *ACSAccessHandler) ListGroups(w http.ResponseWriter, r *http.Request) {
 	if groups == nil {
 		groups = []domain.ACSGroup{}
 	}
-	writeJSON(w, http.StatusOK, groups)
+
+	// Группа видна, если открывает хотя бы одну доступную дверь. Иначе
+	// список групп раскрывал бы состав отделов и названия чужих дверей.
+	allowed := acsReachableControllers(r, h.guard)
+	visible := make([]domain.ACSGroup, 0, len(groups))
+	for _, group := range groups {
+		full, err := h.svc.GetGroup(r.Context(), group.ID)
+		if err != nil {
+			continue
+		}
+		if groupHasAllowedDoor(full, allowed) {
+			visible = append(visible, group)
+		}
+	}
+	writeJSON(w, http.StatusOK, visible)
+}
+
+// groupHasAllowedDoor — та же проверка для групп: хотя бы одна дверь
+// группы должна быть на доступном контроллере.
+func groupHasAllowedDoor(group *domain.ACSGroup, allowed []uuid.UUID) bool {
+	if allowed == nil {
+		return true
+	}
+	if group == nil {
+		return false
+	}
+	set := controllerFilterSet(allowed)
+	for _, door := range group.Doors {
+		if _, ok := set[door.ControllerID]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *ACSAccessHandler) GetGroup(w http.ResponseWriter, r *http.Request) {
@@ -308,6 +389,10 @@ func (h *ACSAccessHandler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	group, err := h.svc.GetGroup(r.Context(), id)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+	if !groupHasAllowedDoor(group, acsReachableControllers(r, h.guard)) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "группа не найдена"})
 		return
 	}
 	writeJSON(w, http.StatusOK, group)

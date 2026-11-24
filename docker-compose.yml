@@ -148,12 +148,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./rtsp-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "9784:9784"
-    # go2rtc работает в host-сети, поэтому из bridge-контейнера он виден
-    # только по адресу хоста.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # host-сеть: go2rtc слушает RTSP только на петле (порт 8554 отдавал
+    # потоки без пароля, когда был открыт в сети). Из bridge-контейнера
+    # петля хоста недоступна, а адрес docker-шлюза go2rtc теперь не слушает.
+    # Поэтому 127.0.0.1 в конфиге прокси — это петля хоста.
+    network_mode: host
     depends_on:
       - go2rtc
 

@@ -40,10 +40,23 @@ type LiveHandler struct {
 	hub       *live.Hub
 	tokenAuth *jwtauth.JWTAuth
 	users     *service.UserService
+	// guard решает, чьи события пользователь имеет право видеть.
+	//
+	// Права events.view мало: она разрешает смотреть журнал, но не отменяет
+	// разграничение доступа к камерам и контроллерам СКУД. Без этой проверки
+	// поток отдавал тревоги со ВСЕХ камер любому, кому разрешён журнал —
+	// и «скрытая» камера всплывала названием в событии.
+	guard *AccessGuard
 }
 
 func NewLiveHandler(hub *live.Hub, tokenAuth *jwtauth.JWTAuth, users *service.UserService) *LiveHandler {
 	return &LiveHandler{hub: hub, tokenAuth: tokenAuth, users: users}
+}
+
+// WithGuard подключает проверку доступа к камерам и контроллерам СКУД.
+func (h *LiveHandler) WithGuard(guard *AccessGuard) *LiveHandler {
+	h.guard = guard
+	return h
 }
 
 // Stream отдаёт поток событий.
@@ -107,6 +120,9 @@ func (h *LiveHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sub := h.hub.Subscribe()
+	// Фильтр ставится до первого Publish для этого подписчика: подписка
+	// только что создана и ещё не читалась.
+	sub.WithFilter(h.eventVisible(r, user))
 	defer func() {
 		sub.Close()
 		// Подписчик, у которого накопились пропуски, означает медленную
@@ -181,6 +197,54 @@ func (h *LiveHandler) authorize(r *http.Request) (*domain.User, bool) {
 		return nil, false
 	}
 	return user, true
+}
+
+// eventVisible возвращает фильтр событий для подписчика.
+//
+// Права берутся один раз на соединение: поток живёт часами, и запрос к
+// базе на каждое событие был бы лишним. Отзыв доступа подействует при
+// следующем переподключении (клиенты переподключаются сами), а отзыв
+// права events.view прекращает поток проверкой в Stream при реконнекте.
+//
+// Событие без камеры (проход СКУД без камеры) фильтруется по контроллеру:
+// иначе журнал СКУД протекал бы через поток в обход своего разграничения.
+func (h *LiveHandler) eventVisible(r *http.Request, user *domain.User) func(live.Event) bool {
+	// Администратор видит всё: у него полный доступ и к камерам, и к СКУД.
+	if user != nil && user.Role == domain.RoleAdmin {
+		return nil
+	}
+
+	camAll, camIDs := h.guard.AllowedCameraIDs(r)
+	acamAll, acamIDs := h.guard.AllowedACSControllerIDs(r)
+
+	allowedCameras := make(map[string]struct{}, len(camIDs))
+	for _, id := range camIDs {
+		allowedCameras[id.String()] = struct{}{}
+	}
+	allowedControllers := make(map[string]struct{}, len(acamIDs))
+	for _, id := range acamIDs {
+		allowedControllers[id.String()] = struct{}{}
+	}
+
+	return func(ev live.Event) bool {
+		if ev.CameraID != "" {
+			if camAll {
+				return true
+			}
+			_, ok := allowedCameras[ev.CameraID]
+			return ok
+		}
+		if ev.ControllerID != "" {
+			if acamAll {
+				return true
+			}
+			_, ok := allowedControllers[ev.ControllerID]
+			return ok
+		}
+		// Событие без камеры и без контроллера (состояние сервера) не
+		// относится к чужим данным — показываем.
+		return true
+	}
 }
 
 // Publish отправляет событие в поток.

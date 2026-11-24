@@ -283,6 +283,9 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 	streamH = streamH.WithGuard(accessGuard)
 	webrtcH = webrtcH.WithGuard(accessGuard)
 	camPreviewH = camPreviewH.WithGuard(accessGuard)
+	// Поток событий: право events.view не отменяет разграничение доступа,
+	// иначе тревоги чужих камер уходили бы всем, кому разрешён журнал.
+	liveH = liveH.WithGuard(accessGuard)
 	eventH = eventH.WithGuard(accessGuard)
 	recH = recH.WithGuard(accessGuard)
 	snapH = snapH.WithGuard(accessGuard)

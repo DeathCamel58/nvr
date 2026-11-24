@@ -95,9 +95,9 @@ func (h *SnapshotHandler) Get(w http.ResponseWriter, r *http.Request) {
 // presigned-ссылку MinIO: такая ссылка подписана под конкретный Host и при
 // открытии интерфейса по внешнему адресу ведёт на localhost клиента.
 //
-// Проверка доступа здесь появится вместе с разграничением по СКУД: снимок
-// события СКУД показывает проходящего у двери, и решать, виден ли он, нужно
-// по доступу к этой двери (этап 2 плана разграничения прав).
+// Доступ проверяется по камере события и по его контроллеру: достаточно
+// одного из них. У части событий камеры нет вовсе (снимок делается с двери
+// контроллера), у части нет контроллера — правило покрывает оба случая.
 func (h *SnapshotHandler) GetACS(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -106,9 +106,20 @@ func (h *SnapshotHandler) GetACS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var storedPath *string
+	// Камера и контроллер нужны для проверки доступа: снимок показывает
+	// проходящего у двери, и «нельзя» должно означать отказ, а не
+	// отсутствие кнопки в интерфейсе.
+	var cameraID, controllerID *uuid.UUID
 	err = h.db.QueryRow(r.Context(),
-		`SELECT snapshot_path FROM acs_events WHERE id = $1`, id).Scan(&storedPath)
+		`SELECT snapshot_path, camera_id, controller_id FROM acs_events WHERE id = $1`, id).
+		Scan(&storedPath, &cameraID, &controllerID)
 	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "event not found"})
+		return
+	}
+	// Чужое событие отвечает тем же «не найдено», что и отсутствующее:
+	// иначе по коду ответа можно перечислить события чужих дверей.
+	if !acsEventVisible(r, h.guard, cameraID, controllerID) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "event not found"})
 		return
 	}

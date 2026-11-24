@@ -172,6 +172,10 @@ func (h *ACSHandler) IngestEvent(w http.ResponseWriter, r *http.Request) {
 			CardNumber:    ev.CardNumber,
 			AccessGranted: &granted,
 			Text:          ev.EventType,
+			// Контроллер нужен фильтру потока событий: права выдаются на
+			// контроллер, и проход с невидимой пользователю двери не должен
+			// попадать в его поток. Камеры у события может не быть вовсе.
+			ControllerID: ev.ControllerID.String(),
 		}
 		if ev.CameraID != nil {
 			event.CameraID = ev.CameraID.String()

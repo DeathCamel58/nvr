@@ -58,6 +58,11 @@ type Event struct {
 	PersonName    string `json:"person_name,omitempty"`
 	CardNumber    string `json:"card_number,omitempty"`
 	AccessGranted *bool  `json:"access_granted,omitempty"`
+	// ControllerID — контроллер СКУД, породивший событие. Нужен, чтобы
+	// решить, показывать ли событие конкретному пользователю: права
+	// выдаются на контроллер, а дверь устройства наша база не опознаёт.
+	// В JSON поля нет — клиенту оно не нужно.
+	ControllerID string `json:"-"`
 
 	// Состояние канала: камера пропала или вернулась.
 	Online *bool `json:"online,omitempty"`
@@ -114,11 +119,7 @@ func (h *Hub) Publish(ev Event) {
 	defer h.mu.RUnlock()
 
 	for sub := range h.subscribers {
-		select {
-		case sub.events <- ev:
-		default:
-			sub.dropped.Add(1)
-		}
+		sub.send(ev)
 	}
 }
 
@@ -137,6 +138,34 @@ type Subscriber struct {
 	events  chan Event
 	dropped atomic.Uint64
 	once    sync.Once
+
+	// filter — «показывать ли это событие». nil означает «всё».
+	//
+	// Нужен, чтобы поток оператору не выносил события чужих камер и
+	// контроллеров: право events.view разрешает смотреть журнал, но не
+	// отменяет разграничение доступа. Раньше поток отдавал всё всем.
+	//
+	// Фильтр выставляет обработчик сразу после Subscribe, до начала
+	// чтения; поэтому дополнительная синхронизация не нужна.
+	filter func(Event) bool
+}
+
+// WithFilter ограничивает подписчика: событие поступит, только если filter
+// вернул true. Вызывается сразу после Subscribe.
+func (s *Subscriber) WithFilter(filter func(Event) bool) *Subscriber {
+	s.filter = filter
+	return s
+}
+
+func (s *Subscriber) send(ev Event) {
+	if s.filter != nil && !s.filter(ev) {
+		return
+	}
+	select {
+	case s.events <- ev:
+	default:
+		s.dropped.Add(1)
+	}
 }
 
 // Events возвращает канал событий. Канал закрывается при Close.
