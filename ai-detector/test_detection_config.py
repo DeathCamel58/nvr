@@ -7,6 +7,7 @@
 from detection_config import (
     point_in_polygon, line_side, LineCrossingTracker, bbox_center,
     DetectionConfig, DetectionConfigStore, similar_plate,
+    RECOGNITION_CLASSES, missing_track_objects,
 )
 
 failures = []
@@ -263,6 +264,23 @@ check("видимость: после отметки повтор не выда�
 check("видимость: отметка не создаёт записей для чужих номеров",
       seen_store.plate_reported_recently("cam6", "A123BC77", seen_cfg) is False
       and seen_store.plate_reported_recently("cam6", "A123BC77", seen_cfg) is True)
+
+# Лица и номера приходят от отдельного движка распознавания: трекера у них
+# нет, и проверка линии не должна принимать их за объекты без track_id.
+# Иначе журнал каждые 10 минут пишет об отказе трекера, хотя машины и люди
+# получают идентификаторы — так настоящее предупреждение теряется в шуме.
+check("трек: лица и номера не считаются объектами без трека",
+      missing_track_objects([
+          {"object_class": "face", "track_id": None},
+          {"object_class": "plate", "track_id": None},
+      ]) == 0)
+check("трек: машина без идентификатора считается пропущенной",
+      missing_track_objects([
+          {"object_class": "car", "track_id": None},
+          {"object_class": "person", "track_id": 12},
+      ]) == 1)
+check("трек: события распознавания входят в набор классов",
+      RECOGNITION_CLASSES == frozenset({"face", "plate"}))
 
 print()
 if failures:

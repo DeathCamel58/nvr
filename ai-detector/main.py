@@ -33,6 +33,9 @@ from plate_zone import has_plate_zone, zone_box
 from audio_pipeline import AudioPipeline
 from embeddings import crop_with_padding
 from attributes import dominant_color
+# Классы событий от движков распознавания лежат в detection_config: этот
+# модуль импортируют и детектор, и тесты без загрузки тяжёлых моделей.
+from detection_config import RECOGNITION_CLASSES
 from detection_engines import (
     cuda_info,
     load_engines,
@@ -710,8 +713,29 @@ async def main():
             missing_track = 0
             if cfg.wants_line:
                 for i, ev in enumerate(raw_events):
+                    # Лица и номера приходят в том же кадре, что и объекты, но
+                    # track_id у них нет и быть не может: трекер ведёт только
+                    # рамки объектов. Если считать их «объектами без трека»,
+                    # журнал каждые 10 минут сообщает об отказе трекера, хотя
+                    # машины и люди получают идентификаторы исправно, а
+                    # настоящий отказ трекера утонул бы в этом шуме.
+                    if ev.get("object_class") in RECOGNITION_CLASSES:
+                        continue
+                    # Класс вне настроек камеры в пересечении не участвует.
+                    # Проверка стоит здесь, а не только в фильтрах ниже:
+                    # иначе посторонний класс (на камере .11 нашёлся `toilet`)
+                    # попадает в счётчик «объектов без трека» и поднимает
+                    # ложное предупреждение об отказе трекера.
+                    if cfg.object_classes and \
+                            ev.get("object_class") not in cfg.object_classes:
+                        continue
                     track_id = ev.get("track_id")
                     if track_id is None:
+                        # Считаем только те классы, которые камера ищет и
+                        # которые ведёт трекер. Раньше счётчик собирался из
+                        # всех событий кадра, и посторонний класс (`toilet` на
+                        # камере .11) поднимал ложное предупреждение об отказе
+                        # трекера, хотя все машины и люди получали id.
                         missing_track += 1
                         continue
                     center = bbox_center(ev["bbox"], w, h)
@@ -754,6 +778,15 @@ async def main():
                         f"{direction} ({ev['object_class']}, трек {ev['track_id']})")
                     continue
 
+                # Лица и номера не участвуют в пересечении линии: они
+                # приходят от отдельного движка распознавания, их рамка не
+                # связана с треком машины или человека, а track_id у них нет.
+                # Раньше они проходили дальше и через эпизоды превращались в
+                # обычные события объектов — в базе появлялись записи
+                # object_class=plate/face без трека, хотя такие события
+                # публикуются отдельным каналом распознавания.
+                if ev.get("object_class") in RECOGNITION_CLASSES:
+                    continue
                 if not config_store.should_report(cfg, ev["object_class"],
                                                   ev["confidence"], ev["bbox"], w, h):
                     continue

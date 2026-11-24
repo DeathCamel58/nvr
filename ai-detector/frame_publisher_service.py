@@ -35,7 +35,13 @@ from nats.aio.client import Client as NATS
 # Прямоугольник зоны номеров считает общий модуль: то же условие нужно
 # детектору, чтобы решить, искать ли номера на полном кадре. Разошедшиеся
 # условия дали бы молчаливый отказ распознавания (см. plate_zone.py).
-from plate_zone import zone_box
+#
+# Импорт необязательный: без него видна только часть сервиса, но проверить
+# разбор готового потока ffmpeg (split_rtsp_frames) можно и в другом образе.
+try:
+    from plate_zone import zone_box
+except ImportError:  # pragma: no cover — при отладке вне образа публикатора
+    zone_box = None
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("frame-publisher")
@@ -94,6 +100,28 @@ def build_rtsp_url(stream_url: str, username: str, password: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
 
 
+def split_rtsp_frames(data: bytes) -> list[bytes]:
+    """Делит вывод ffmpeg на отдельные JPEG по маркерам начала и конца.
+
+    Зачем: при разборе готового файла (в отличие от однокадрового захвата)
+    ffmpeg может отдать несколько кадров за запуск — при накопленном буфере
+    go2rtc после переключения на основной поток. Недописанный последний кадр
+    отбрасывается: без маркера FFD9 его размер неизвестен.
+    """
+    frames = []
+    pos = 0
+    while True:
+        start = data.find(b"\xff\xd8", pos)
+        if start < 0:
+            break
+        end = data.find(b"\xff\xd9", start)
+        if end < 0:
+            break
+        frames.append(data[start:end + 2])
+        pos = end + 2
+    return frames
+
+
 def grab_frame(url: str, width: int, timeout: float,
                crop: tuple[int, int, int, int] | None = None) -> bytes | None:
     """Забирает один кадр из RTSP и возвращает JPEG-байты.
@@ -119,6 +147,9 @@ def grab_frame(url: str, width: int, timeout: float,
     cmd = [
         "ffmpeg",
         "-rtsp_transport", "tcp",
+        # Принудительно TCP: при UDP потеря пакетов даёт артефакты кадра,
+        # а при обрыве сети поток молча ждёт до общего таймаута subprocess.
+        "-rtsp_flags", "prefer_tcp",
         "-i", url,
         "-frames:v", "1",
     ]
@@ -138,10 +169,20 @@ def grab_frame(url: str, width: int, timeout: float,
         return None
 
     data = proc.stdout
-    # Проверяем, что это целый JPEG (начинается с FFD8, заканчивается FFD9)
-    if not data or not data.startswith(b"\xff\xd8") or not data.endswith(b"\xff\xd9"):
+    # Закрываем кадр по границе маркера, а не по последнему байту вывода.
+    #
+    # При переключении на основной поток go2rtc отдаёт уже накопленный буфер
+    # 4К: ffmpeg успевает записать в трубу следующий кадр, и data больше не
+    # заканчивается на FFD9. Раньше такой набор отбрасывался (а если он был
+    # больше лимита NATS — в журнал уходило «maximum payload exceeded»),
+    # хотя поток исправен и первый кадр в наборе целый.
+    start = data.find(b"\xff\xd8")
+    if start < 0:
         return None
-    return data
+    end = data.find(b"\xff\xd9", start)
+    if end < 0:
+        return None
+    return data[start:end + 2]
 
 
 class FFmpegStream:
@@ -163,12 +204,17 @@ class FFmpegStream:
 
     def __init__(self, url: str, width: int,
                  crop: tuple[float, float, float, float] | None,
-                 fps: float, reconnect_delay: float = 2.0):
+                 fps: float, reconnect_delay: float = 2.0,
+                 timeout: float = 10.0):
         self.url = url
         self.width = width
         self.crop = crop
         self.fps = fps
         self.reconnect_delay = reconnect_delay
+        # Таймаут открытия потока и чтения сокета, сек. Потолок для кадра
+        # зоны номера — 10 с: первый кадр на 4К декодируется небыстро, но
+        # дольше ждать бессмысленно, поток всё равно будет перезапущен.
+        self.timeout = timeout
         self._proc: subprocess.Popen | None = None
         self._buffer = bytearray()
         self._restarts = 0
@@ -188,6 +234,9 @@ class FFmpegStream:
         return [
             "ffmpeg",
             "-rtsp_transport", "tcp",
+            # Принудительно TCP: при UDP потеря пакетов даёт артефакты, а
+            # при обрыве сети поток молча ждёт до общего таймаута.
+            "-rtsp_flags", "prefer_tcp",
             # Не буферизовать: кадры нужны сразу, а не пачкой на выходе.
             "-fflags", "nobuffer",
             "-flags", "low_delay",
@@ -562,7 +611,8 @@ class FramePublisher:
             )
             return
 
-        stream = FFmpegStream(url, width, crop, fps=self.plate_fps)
+        stream = FFmpegStream(url, width, crop, fps=self.plate_fps,
+                              timeout=min(self.plate_read_timeout, 10.0))
         stream.start()
         logger.info(
             f"[{cam_id[:8]}] {cam['name']}: поток номеров запущен "
