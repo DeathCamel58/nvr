@@ -14,6 +14,8 @@
 
 import { mediaDevices } from 'react-native-webrtc';
 
+import { t } from '../i18n';
+
 /**
  * Сколько ждём ответа нативного слоя, прежде чем считать, что он молчит.
  *
@@ -26,14 +28,14 @@ const PROBE_TIMEOUT_MS = 6000;
 /** Обращается к медиа и останавливает дорожки сразу после проверки. */
 async function probeMicrophone(): Promise<string> {
   if (!mediaDevices?.getUserMedia) {
-    return 'недоступно';
+    return t('net.micUnavailable');
   }
   try {
     const stream = await Promise.race([
       mediaDevices.getUserMedia({ audio: true, video: false }),
       new Promise<never>((_, reject) => {
         setTimeout(
-          () => reject(new Error(`нет ответа за ${Math.round(PROBE_TIMEOUT_MS / 1000)} с`)),
+          () => reject(new Error(t('net.micNoResponse', { seconds: Math.round(PROBE_TIMEOUT_MS / 1000) }))),
           PROBE_TIMEOUT_MS,
         );
       }),
@@ -46,9 +48,9 @@ async function probeMicrophone(): Promise<string> {
         // Дорожка могла уже быть остановлена — это не ошибка.
       }
     }
-    return 'ок';
+    return t('net.micOk');
   } catch (error) {
-    return error instanceof Error ? error.message : 'ошибка доступа';
+    return error instanceof Error ? error.message : t('net.micAccessError');
   }
 }
 

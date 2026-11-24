@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import LivePlayer from '../components/LivePlayer';
@@ -29,6 +30,7 @@ export default function LiveScreen({
   camera: Camera;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const { client, current, token } = useApp();
   const [stream, setStream] = useState<StreamInfo | null>(null);
   const [kind, setKind] = useState<StreamKind>('sub');
@@ -108,9 +110,7 @@ export default function LiveScreen({
     if (kind === 'main' && !fellBack) {
       setFellBack(true);
       setKind('sub');
-      setError(
-        'Основной поток не поднялся — открыт дополнительный. Проверьте лимит RTSP-сессий камеры.',
-      );
+      setError(t('live.mainStreamFailed'));
     }
   };
 
@@ -131,7 +131,7 @@ export default function LiveScreen({
       <View style={styles.info}>
         <Text style={styles.cameraName}>{camera.name}</Text>
         <Text style={styles.cameraMeta}>
-          {camera.ip || 'адрес не указан'}
+          {camera.ip || t('live.noAddress')}
           {stream?.status ? ` · ${stream.status}` : ''}
           {transport ? ` · ${transport.toUpperCase()}` : ''}
         </Text>
@@ -146,12 +146,12 @@ export default function LiveScreen({
       <View style={styles.buttons}>
         <Pressable style={styles.button} onPress={switchStream} disabled={!stream}>
           <Text style={styles.buttonText}>
-            {kind === 'sub' ? 'Основной поток' : 'Дополнительный поток'}
+            {kind === 'sub' ? t('live.mainStream') : t('live.subStream')}
           </Text>
         </Pressable>
 
         <Pressable style={[styles.button, styles.buttonBack]} onPress={onBack}>
-          <Text style={styles.buttonText}>К списку</Text>
+          <Text style={styles.buttonText}>{t('live.backToList')}</Text>
         </Pressable>
 
         {audio?.backchannel ? (
@@ -160,7 +160,7 @@ export default function LiveScreen({
             onPress={() => setTalking((value) => !value)}
           >
             <Text style={styles.buttonText}>
-              {talking ? 'Закончить разговор' : 'Говорить'}
+              {talking ? t('live.stopTalking') : t('live.talk')}
             </Text>
           </Pressable>
         ) : null}
@@ -176,10 +176,10 @@ export default function LiveScreen({
         {error || ptzError
           ? error || ptzError
           : talking
-            ? 'Микрофон включён: голос идёт в динамик камеры. Разговор работает только по WebRTC — в резервном режиме HLS его нет.'
+            ? t('live.talkingHint')
             : kind === 'sub'
-              ? 'Дополнительный поток экономит трафик. Переключитесь на основной для большей детализации.'
-              : 'Основной поток даёт лучшее качество и расходует больше трафика.'}
+              ? t('live.subHint')
+              : t('live.mainHint')}
       </Text>
     </View>
   );

@@ -9,6 +9,9 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { dateLocale } from '../i18n';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { colors, radius, spacing } from '../theme';
@@ -26,6 +29,7 @@ import type { AccessController, AccessDoor, AccessEvent } from '../types';
  * проём в доме, а не испорченный кадр.
  */
 export default function AccessScreen({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
   const { client } = useApp();
   const [mode, setMode] = useState<'doors' | 'events'>('doors');
   const [controllers, setControllers] = useState<AccessController[]>([]);
@@ -84,12 +88,12 @@ export default function AccessScreen({ onBack }: { onBack: () => void }) {
 
   const openDoor = (controller: AccessController, door: AccessDoor) => {
     Alert.alert(
-      'Открыть дверь?',
+      t('access.openDoorTitle'),
       `${controller.name}\n${door.name || door.id}`,
       [
-        { text: 'Отмена', style: 'cancel' },
+        { text: t('access.cancel'), style: 'cancel' },
         {
-          text: 'Открыть',
+          text: t('access.open'),
           style: 'destructive',
           onPress: async () => {
             if (!client) return;
@@ -111,9 +115,9 @@ export default function AccessScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Доступ</Text>
+        <Text style={styles.title}>{t('access.title')}</Text>
         <Pressable style={styles.headerButton} onPress={onBack}>
-          <Text style={styles.headerButtonText}>К камерам</Text>
+          <Text style={styles.headerButtonText}>{t('access.toCameras')}</Text>
         </Pressable>
       </View>
 
@@ -122,13 +126,13 @@ export default function AccessScreen({ onBack }: { onBack: () => void }) {
           style={[styles.tab, mode === 'doors' && styles.tabActive]}
           onPress={() => setMode('doors')}
         >
-          <Text style={styles.tabText}>Двери</Text>
+          <Text style={styles.tabText}>{t('access.tabDoors')}</Text>
         </Pressable>
         <Pressable
           style={[styles.tab, mode === 'events' && styles.tabActive]}
           onPress={() => setMode('events')}
         >
-          <Text style={styles.tabText}>События</Text>
+          <Text style={styles.tabText}>{t('access.tabEvents')}</Text>
         </Pressable>
       </View>
 
@@ -147,13 +151,13 @@ export default function AccessScreen({ onBack }: { onBack: () => void }) {
           data={controllers}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-          ListEmptyComponent={<Text style={styles.empty}>Контроллеры не найдены</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{t('access.noControllers')}</Text>}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardHead}>
                 <Text style={styles.cardTitle}>{item.name}</Text>
                 <Text style={[styles.status, item.status === 'online' && styles.statusOn]}>
-                  {item.status === 'online' ? 'на связи' : 'нет связи'}
+                  {item.status === 'online' ? t('access.online') : t('access.offline')}
                 </Text>
               </View>
               <Text style={styles.cardMeta}>
@@ -174,7 +178,7 @@ export default function AccessScreen({ onBack }: { onBack: () => void }) {
                       onPress={() => openDoor(item, door)}
                     >
                       <Text style={styles.openButtonText}>
-                        {busyDoor === key ? '…' : 'Открыть'}
+                        {busyDoor === key ? '…' : t('access.open')}
                       </Text>
                     </Pressable>
                   </View>
@@ -188,15 +192,17 @@ export default function AccessScreen({ onBack }: { onBack: () => void }) {
           data={events}
           keyExtractor={(item) => item.id}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={loadEvents} />}
-          ListEmptyComponent={<Text style={styles.empty}>Событий пока нет</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{t('access.noEvents')}</Text>}
           renderItem={({ item }) => (
             <View style={styles.eventRow}>
               <Text style={styles.eventTime}>{formatTime(item.timestamp)}</Text>
               <View style={styles.eventBody}>
-                <Text style={styles.eventType}>{describeEvent(item.event_type)}</Text>
+                <Text style={styles.eventType}>{describeEvent(item.event_type, t)}</Text>
                 <Text style={styles.eventMeta} numberOfLines={1}>
-                  {item.card_name || item.card_number || 'карта не указана'}
-                  {item.media_type ? ` · ${item.media_type === 'clip' ? 'видео' : 'снимок'}` : ''}
+                  {item.card_name || item.card_number || t('access.cardNotSpecified')}
+                  {item.media_type
+                    ? ` · ${item.media_type === 'clip' ? t('access.mediaClip') : t('access.mediaSnapshot')}`
+                    : ''}
                 </Text>
               </View>
             </View>
@@ -211,7 +217,7 @@ export default function AccessScreen({ onBack }: { onBack: () => void }) {
 function formatTime(timestamp: string): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '—';
-  const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const time = date.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
   const today = new Date();
   const sameDay =
     date.getDate() === today.getDate() &&
@@ -219,7 +225,7 @@ function formatTime(timestamp: string): string {
     date.getFullYear() === today.getFullYear();
   return sameDay
     ? time
-    : `${date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} ${time}`;
+    : `${date.toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit' })} ${time}`;
 }
 
 /**
@@ -229,17 +235,18 @@ function formatTime(timestamp: string): string {
  * их оператору без перевода нельзя: значение имеет смысл «проход» или
  * «открыто вручную», а не строка из протокола.
  */
-function describeEvent(type: string): string {
-  const labels: Record<string, string> = {
-    passage: 'Проход',
-    access_granted: 'Доступ разрешён',
-    access_denied: 'Доступ запрещён',
-    remote_open: 'Открыто вручную',
-    door_forced: 'Взлом двери',
-    door_open: 'Дверь открыта',
-    door_closed: 'Дверь закрыта',
+function describeEvent(type: string, t: TFunction): string {
+  const labelKeys: Record<string, string> = {
+    passage: 'access.eventPassage',
+    access_granted: 'access.eventAccessGranted',
+    access_denied: 'access.eventAccessDenied',
+    remote_open: 'access.eventRemoteOpen',
+    door_forced: 'access.eventDoorForced',
+    door_open: 'access.eventDoorOpen',
+    door_closed: 'access.eventDoorClosed',
   };
-  return labels[type] ?? type;
+  const key = labelKeys[type];
+  return key ? t(key) : type;
 }
 
 const styles = StyleSheet.create({

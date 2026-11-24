@@ -11,10 +11,13 @@ import {
   View,
 } from 'react-native';
 import Video from 'react-native-video';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
+import { dateLocale } from '../i18n';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { joinUrl } from '../net/address';
-import { colors, radius, spacing, triggerColors, triggerLabels } from '../theme';
+import { colors, radius, spacing, triggerColors } from '../theme';
 import type { Camera, Recording } from '../types';
 
 /** Сколько записей запрашивать за раз. */
@@ -27,16 +30,33 @@ const PAGE_SIZE = 20;
  * и придумывать свои названия нельзя — иначе выбор в телефоне перестанет
  * совпадать с тем, что видно в веб-интерфейсе.
  */
-const TRIGGERS: Array<{ value: string | null; label: string }> = [
-  { value: null, label: 'Все' },
-  { value: 'object', label: 'Объекты' },
-  { value: 'line', label: 'Пересечение' },
-  { value: 'face', label: 'Лица' },
-  { value: 'plate', label: 'Номера' },
-  { value: 'acs', label: 'СКУД' },
-  { value: 'manual', label: 'Вручную' },
-  { value: 'always', label: 'Постоянно' },
+const TRIGGERS: Array<{ value: string | null; labelKey: string }> = [
+  { value: null, labelKey: 'archive.filterAll' },
+  { value: 'object', labelKey: 'archive.filterObject' },
+  { value: 'line', labelKey: 'archive.filterLine' },
+  { value: 'face', labelKey: 'archive.filterFace' },
+  { value: 'plate', labelKey: 'archive.filterPlate' },
+  { value: 'acs', labelKey: 'archive.filterAcs' },
+  { value: 'manual', labelKey: 'archive.filterManual' },
+  { value: 'always', labelKey: 'archive.filterAlways' },
 ];
+
+/**
+ * Названия причин записи в строке списка.
+ *
+ * Ключи совпадают с trigger_type; неизвестное значение показывается как
+ * пришло с сервера.
+ */
+const TRIGGER_LABEL_KEYS: Record<string, string> = {
+  face: 'archive.triggerFace',
+  plate: 'archive.triggerPlate',
+  line: 'archive.triggerLine',
+  object: 'archive.triggerObject',
+  acs: 'archive.triggerAcs',
+  audio: 'archive.triggerAudio',
+  always: 'archive.triggerAlways',
+  manual: 'archive.triggerManual',
+};
 
 /** Приводит длительность в секундах к виду «5:03». */
 function formatDuration(seconds: number): string {
@@ -47,18 +67,18 @@ function formatDuration(seconds: number): string {
 }
 
 /** Приводит размер файла к читаемому виду. */
-function formatSize(bytes: number): string {
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} ГБ`;
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} МБ`;
-  if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(0)} КБ`;
-  return `${bytes} Б`;
+function formatSize(bytes: number, t: TFunction): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} ${t('archive.unitGB')}`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} ${t('archive.unitMB')}`;
+  if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(0)} ${t('archive.unitKB')}`;
+  return `${bytes} ${t('archive.unitB')}`;
 }
 
 /** Дата и время записи в местном времени телефона. */
 function formatDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString('ru-RU', {
+  return date.toLocaleString(dateLocale(), {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
@@ -81,6 +101,7 @@ export default function ArchiveScreen({
   camera?: Camera;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const { client, current, token } = useApp();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [total, setTotal] = useState(0);
@@ -183,7 +204,7 @@ export default function ArchiveScreen({
 
   const openRecording = (recording: Recording) => {
     if (!recording.url) {
-      setError('У записи нет ссылки на файл');
+      setError(t('archive.noFileLink'));
       return;
     }
     setPlayError(null);
@@ -220,15 +241,15 @@ export default function ArchiveScreen({
                 // декодировать, и браузер в веб-интерфейсе падает так же.
                 setPlayError(
                   isHevc
-                    ? 'Запись в HEVC (H.265): этот телефон её не воспроизводит'
-                    : message || 'Не удалось воспроизвести запись',
+                    ? t('archive.hevcUnsupported')
+                    : message || t('archive.playbackFailed'),
                 );
               }}
             />
           ) : (
             <View style={styles.playerPlaceholder}>
               <Text style={styles.placeholderText}>
-                Ссылка на файл недоступна
+                {t('archive.fileLinkUnavailable')}
               </Text>
             </View>
           )}
@@ -242,11 +263,11 @@ export default function ArchiveScreen({
 
         <ScrollView contentContainerStyle={styles.playerInfo}>
           <Text style={styles.recordTitle}>
-            {playing.camera_name || camera?.name || 'Запись'}
+            {playing.camera_name || camera?.name || t('archive.recording')}
           </Text>
           <Text style={styles.recordMeta}>
             {formatDateTime(playing.start_time)} ·{' '}
-            {formatDuration(playing.duration)} · {formatSize(playing.file_size)}
+            {formatDuration(playing.duration)} · {formatSize(playing.file_size, t)}
           </Text>
           {playing.resolution && (
             <Text style={styles.recordMeta}>
@@ -263,7 +284,7 @@ export default function ArchiveScreen({
             setPlayError(null);
           }}
         >
-          <Text style={styles.backButtonText}>Назад к списку</Text>
+          <Text style={styles.backButtonText}>{t('archive.backToList')}</Text>
         </Pressable>
       </View>
     );
@@ -272,12 +293,13 @@ export default function ArchiveScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Архив</Text>
+        <Text style={styles.title}>{t('archive.title')}</Text>
         <Text style={styles.subtitle}>
           {cameraFilter
-            ? cameras.find((c) => c.id === cameraFilter)?.name || 'Одна камера'
-            : 'Все камеры'}{' '}
-          · {total} записей
+            ? cameras.find((c) => c.id === cameraFilter)?.name
+              || t('archive.oneCamera')
+            : t('archive.allCameras')}{' '}
+          · {t('archive.recordCount', { count: total })}
         </Text>
       </View>
 
@@ -294,7 +316,7 @@ export default function ArchiveScreen({
             <Text
               style={[styles.chipText, !cameraFilter && styles.chipTextActive]}
             >
-              Все камеры
+              {t('archive.allCameras')}
             </Text>
           </Pressable>
           {cameras.map((item) => (
@@ -328,7 +350,7 @@ export default function ArchiveScreen({
           style={styles.searchInput}
           value={searchInput}
           onChangeText={setSearchInput}
-          placeholder="Номер, имя или класс объекта"
+          placeholder={t('archive.searchPlaceholder')}
           placeholderTextColor={colors.textMuted}
           autoCorrect={false}
           autoCapitalize="none"
@@ -358,7 +380,7 @@ export default function ArchiveScreen({
               onPress={() => setTriggerFilter(item.value)}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {item.label}
+                {t(item.labelKey)}
               </Text>
             </Pressable>
           );
@@ -391,11 +413,11 @@ export default function ArchiveScreen({
           loading ? (
             <View style={styles.centered}>
               <ActivityIndicator color={colors.primary} />
-              <Text style={styles.centeredText}>Читаю архив…</Text>
+              <Text style={styles.centeredText}>{t('archive.loading')}</Text>
             </View>
           ) : (
             <View style={styles.centered}>
-              <Text style={styles.centeredText}>Записей не найдено</Text>
+              <Text style={styles.centeredText}>{t('archive.empty')}</Text>
             </View>
           )
         }
@@ -417,7 +439,7 @@ export default function ArchiveScreen({
                   {formatDateTime(item.start_time)}
                 </Text>
                 <Text style={styles.recordCamera} numberOfLines={1}>
-                  {item.camera_name || 'Камера'}
+                  {item.camera_name || t('archive.camera')}
                 </Text>
                 <View style={styles.recordBadges}>
                   <View
@@ -430,7 +452,7 @@ export default function ArchiveScreen({
                     ]}
                   >
                     <Text style={[styles.triggerText, { color: triggerColor }]}>
-                      {triggerLabels[trigger] || trigger}
+                      {TRIGGER_LABEL_KEYS[trigger] ? t(TRIGGER_LABEL_KEYS[trigger]) : trigger}
                     </Text>
                   </View>
                   {item.trigger_detail ? (
@@ -446,7 +468,7 @@ export default function ArchiveScreen({
                   {formatDuration(item.duration)}
                 </Text>
                 <Text style={styles.recordSize}>
-                  {formatSize(item.file_size)}
+                  {formatSize(item.file_size, t)}
                 </Text>
               </View>
             </Pressable>
@@ -455,7 +477,7 @@ export default function ArchiveScreen({
       />
 
       <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>К камерам</Text>
+        <Text style={styles.backButtonText}>{t('archive.toCameras')}</Text>
       </Pressable>
     </View>
   );

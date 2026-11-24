@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { joinUrl } from '../net/address';
@@ -77,6 +78,7 @@ function CameraCard({
   token: string | null;
   baseUrl: string;
 }) {
+  const { t } = useTranslation();
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [tick, setTick] = useState(0);
@@ -158,7 +160,7 @@ function CameraCard({
         ) : (
           <View style={styles.thumbPlaceholder}>
             <Text style={styles.thumbPlaceholderText}>
-              {failed ? 'Кадр недоступен' : 'Загрузка…'}
+              {failed ? t('cameras.frameUnavailable') : t('cameras.loading')}
             </Text>
           </View>
         )}
@@ -170,7 +172,7 @@ function CameraCard({
           ]}
         >
           <Text style={styles.statusPillText}>
-            {isOnline ? 'онлайн' : 'офлайн'}
+            {isOnline ? t('cameras.online') : t('cameras.offline')}
           </Text>
         </View>
       </View>
@@ -180,7 +182,7 @@ function CameraCard({
           {camera.name}
         </Text>
         <Text style={styles.cardMeta} numberOfLines={1}>
-          {camera.ip || camera.rtsp_url || 'адрес не указан'}
+          {camera.ip || camera.rtsp_url || t('cameras.noAddress')}
         </Text>
       </View>
     </Pressable>
@@ -208,6 +210,7 @@ export default function CamerasScreen({
   /** Пропущенные вызовы: журнал недозвонённых попыток. */
   onOpenMissed: () => void;
 }) {
+  const { t } = useTranslation();
   const { client, current, token } = useApp();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [missedCount, setMissedCount] = useState(0);
@@ -257,7 +260,7 @@ export default function CamerasScreen({
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.centeredText}>Читаю список камер…</Text>
+        <Text style={styles.centeredText}>{t('cameras.loadingList')}</Text>
       </View>
     );
   }
@@ -267,29 +270,33 @@ export default function CamerasScreen({
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.headerText}>
-            <Text style={styles.title}>Камеры</Text>
+            <Text style={styles.title}>{t('cameras.title')}</Text>
             <Text style={styles.subtitle}>
-              {current?.name} · {onlineCount} из {cameras.length} онлайн
+              {current?.name} ·{' '}
+              {t('cameras.onlineSummary', {
+                online: onlineCount,
+                total: cameras.length,
+              })}
             </Text>
           </View>
           <Pressable style={styles.headerButton} onPress={onOpenServers}>
-            <Text style={styles.headerButtonText}>Серверы</Text>
+            <Text style={styles.headerButtonText}>{t('cameras.servers')}</Text>
           </Pressable>
         </View>
 
         <View style={styles.headerRow}>
           <Pressable style={styles.archiveButton} onPress={onOpenArchive}>
-            <Text style={styles.archiveButtonText}>Архив записей</Text>
+            <Text style={styles.archiveButtonText}>{t('cameras.archive')}</Text>
           </Pressable>
           {/* Доступ рядом с архивом: обе кнопки ведут в разделы, куда
               оператор заходит регулярно, и прятать их в меню незачем. */}
           <Pressable style={styles.archiveButton} onPress={onOpenAccess}>
-            <Text style={styles.archiveButtonText}>Доступ</Text>
+            <Text style={styles.archiveButtonText}>{t('cameras.access')}</Text>
           </Pressable>
           {/* Звонки — третий частый раздел: ответить на вызов с калитки
               должно быть не глубже одного касания от списка камер. */}
           <Pressable style={styles.archiveButton} onPress={onOpenCalls}>
-            <Text style={styles.archiveButtonText}>Звонки</Text>
+            <Text style={styles.archiveButtonText}>{t('cameras.calls')}</Text>
           </Pressable>
           {/* Пропущенные — с числом за сутки: вызов с калитки легко
               пропустить, и счётчик на кнопке виден без открытия раздела. */}
@@ -300,7 +307,9 @@ export default function CamerasScreen({
                 missedCount > 0 && styles.archiveButtonTextAlarm,
               ]}
             >
-              {missedCount > 0 ? `Пропущенные · ${missedCount}` : 'Пропущенные'}
+              {missedCount > 0
+                ? t('cameras.missedWithCount', { count: missedCount })
+                : t('cameras.missed')}
             </Text>
           </Pressable>
         </View>
@@ -330,7 +339,7 @@ export default function CamerasScreen({
         }
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={styles.centeredText}>Камер пока нет</Text>
+            <Text style={styles.centeredText}>{t('cameras.empty')}</Text>
           </View>
         }
         renderItem={({ item }) => (

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import {
   loadActiveLayoutId,
@@ -36,6 +37,7 @@ function logStorageError(error: unknown): void {
 }
 
 export default function TvApp() {
+  const { t } = useTranslation();
   const { current } = useApp();
 
   const [ready, setReady] = useState(false);
@@ -176,7 +178,7 @@ export default function TvApp() {
         onCreate={() => {
           // Имя по умолчанию с номером: оператор переименует позже,
           // а придумывать имя до начала работы никто не станет.
-          addLayout(`Раскладка ${layouts.length + 1}`);
+          addLayout(t('tv.newLayoutName', { number: layouts.length + 1 }));
           setPicking(false);
         }}
         onRemove={removeLayout}

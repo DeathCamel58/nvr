@@ -8,7 +8,10 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
+import { dateLocale } from '../i18n';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { colors, radius, spacing } from '../theme';
@@ -27,6 +30,7 @@ import type { SipCallRecord } from '../types';
  * человек должен видеть один и тот же список и на телефоне, и в панели.
  */
 export default function MissedCallsScreen({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
   const { client } = useApp();
   const [calls, setCalls] = useState<SipCallRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +66,7 @@ export default function MissedCallsScreen({ onBack }: { onBack: () => void }) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.centeredText}>Читаю журнал звонков…</Text>
+        <Text style={styles.centeredText}>{t('missed.loading')}</Text>
       </View>
     );
   }
@@ -71,15 +75,15 @@ export default function MissedCallsScreen({ onBack }: { onBack: () => void }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Пропущенные</Text>
+          <Text style={styles.title}>{t('missed.title')}</Text>
           <Text style={styles.subtitle}>
             {calls.length > 0
-              ? `${calls.length} ${describeCalls(calls.length)} в журнале`
-              : 'журнал пуст'}
+              ? t('missed.subtitleCount', { count: calls.length })
+              : t('missed.subtitleEmpty')}
           </Text>
         </View>
         <Pressable style={styles.headerButton} onPress={onBack}>
-          <Text style={styles.headerButtonText}>К камерам</Text>
+          <Text style={styles.headerButtonText}>{t('missed.toCameras')}</Text>
         </Pressable>
       </View>
 
@@ -105,21 +109,22 @@ export default function MissedCallsScreen({ onBack }: { onBack: () => void }) {
         }
         ListEmptyComponent={
           <Text style={styles.emptyText}>
-            Недозвонённых вызовов нет. Здесь появятся вызовы с калитки и с
-            трубок, на которые не ответили.
+            {t('missed.empty')}
           </Text>
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardTop}>
               <Text style={styles.caller} numberOfLines={1}>
-                {item.from_name || item.from_number || 'Неизвестный'}
+                {item.from_name || item.from_number || t('missed.unknownCaller')}
               </Text>
-              <Text style={styles.time}>{describeTime(item.started_at)}</Text>
+              <Text style={styles.time}>{describeTime(item.started_at, t)}</Text>
             </View>
             <Text style={styles.details} numberOfLines={2}>
-              {describeDestination(item)} · {describeResult(item.result)}
-              {item.talk_seconds > 0 ? ` · разговор ${item.talk_seconds} с` : ''}
+              {describeDestination(item, t)} · {describeResult(item.result, t)}
+              {item.talk_seconds > 0
+                ? ` · ${t('missed.talk', { seconds: item.talk_seconds })}`
+                : ''}
             </Text>
           </View>
         )}
@@ -134,7 +139,7 @@ export default function MissedCallsScreen({ onBack }: { onBack: () => void }) {
  * «Сегодня, 14:32» человек читает быстрее, чем «2026-10-12 14:32», и при
  * разборе происшествия ему важно именно «когда по отношению к сейчас».
  */
-function describeTime(iso: string): string {
+function describeTime(iso: string, t: TFunction): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
 
@@ -146,55 +151,40 @@ function describeTime(iso: string): string {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
 
-  if (sameDay(date, now)) return `сегодня, ${time}`;
+  if (sameDay(date, now)) return t('missed.today', { time });
 
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  if (sameDay(date, yesterday)) return `вчера, ${time}`;
+  if (sameDay(date, yesterday)) return t('missed.yesterday', { time });
 
-  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}, ${time}`;
+  const day = date.toLocaleDateString(dateLocale(), {
+    day: '2-digit',
+    month: '2-digit',
+  });
+  return `${day}, ${time}`;
 }
 
 function pad(value: number): string {
   return value < 10 ? `0${value}` : String(value);
 }
 
-/**
- * Слово «вызов» в нужной форме.
- *
- * Русский счёт требует трёх форм, а в интерфейсе числа меняются: «1 вызов»,
- * «2 вызова», «50 вызовов». Без этого подпись читалась бы как машинная.
- */
-function describeCalls(count: number): string {
-  const tail = count % 100;
-  if (tail >= 11 && tail <= 14) return 'вызовов';
-  switch (count % 10) {
-    case 1:
-      return 'вызов';
-    case 2:
-    case 3:
-    case 4:
-      return 'вызова';
-    default:
-      return 'вызовов';
-  }
-}
-
 /** Куда звонили: имя абонента понятнее номера, но есть оно не всегда. */
-function describeDestination(call: SipCallRecord): string {
+function describeDestination(call: SipCallRecord, t: TFunction): string {
   const destination = call.to_name || call.to_number;
-  return destination ? `на ${destination}` : 'вызов не дошёл';
+  return destination
+    ? t('missed.toDestination', { destination })
+    : t('missed.notDelivered');
 }
 
 /** Чем закончилась попытка — на панели у калитки это разные ситуации. */
-function describeResult(result: string): string {
+function describeResult(result: string, t: TFunction): string {
   switch (result) {
     case 'busy':
-      return 'линия занята';
+      return t('missed.resultBusy');
     case 'unavailable':
-      return 'абонент недоступен';
+      return t('missed.resultUnavailable');
     default:
-      return 'не ответили';
+      return t('missed.resultNoAnswer');
   }
 }
 

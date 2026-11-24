@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { colors, radius, spacing } from '../theme';
@@ -35,6 +37,7 @@ export default function TvGridScreen({
   /** Открывает список раскладок для переключения между ними. */
   onPickLayout: () => void;
 }) {
+  const { t } = useTranslation();
   const { client, token, baseUrl } = useApp();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [streams, setStreams] = useState<Record<string, StreamInfo>>({});
@@ -190,12 +193,12 @@ export default function TvGridScreen({
   if (layout.cameraIds.length === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>Раскладка пуста</Text>
+        <Text style={styles.emptyTitle}>{t('tv.layoutEmpty')}</Text>
         <Text style={styles.emptyHint}>
-          Выберите камеры, которые будут показываться на этом экране.
+          {t('tv.layoutEmptyHint')}
         </Text>
         <TvButton
-          title="Выбрать камеры"
+          title={t('tv.chooseCameras')}
           variant="primary"
           hasTVPreferredFocus
           onPress={onOpenLayoutEditor}
@@ -233,12 +236,12 @@ export default function TvGridScreen({
             <View style={styles.fullscreenActions}>
               <TvButton
                 title={
-                  soundIds.includes(camera.id) ? 'Выключить звук' : 'Включить звук'
+                  soundIds.includes(camera.id) ? t('tv.soundOff') : t('tv.soundOn')
                 }
                 hasTVPreferredFocus
                 onPress={() => onToggleSound(camera.id)}
               />
-              <TvButton title="К сетке" onPress={() => setFullscreenId(null)} />
+              <TvButton title={t('tv.toGrid')} onPress={() => setFullscreenId(null)} />
             </View>
           </View>
         </View>
@@ -251,9 +254,9 @@ export default function TvGridScreen({
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{layout.name}</Text>
         <View style={styles.headerActions}>
-          <TvButton title="Раскладки" onPress={onPickLayout} />
-          <TvButton title="Камеры" onPress={onOpenLayoutEditor} />
-          <TvButton title="Настройки" onPress={onOpenSettings} />
+          <TvButton title={t('tv.layouts')} onPress={onPickLayout} />
+          <TvButton title={t('tv.cameras')} onPress={onOpenLayoutEditor} />
+          <TvButton title={t('tv.settings')} onPress={onOpenSettings} />
         </View>
       </View>
 
@@ -266,7 +269,7 @@ export default function TvGridScreen({
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={styles.loadingText}>Загружаю камеры…</Text>
+          <Text style={styles.loadingText}>{t('tv.loadingCameras')}</Text>
         </View>
       ) : (
         <View style={styles.grid}>
@@ -306,12 +309,12 @@ export default function TvGridScreen({
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          {gridLabel(layout.size)}
-          {layout.sound.enabled && soundIds.length > 0 ? ' · звук включён' : ''}
+          {gridLabel(layout.size, t)}
+          {layout.sound.enabled && soundIds.length > 0 ? t('tv.soundOnSuffix') : ''}
           {' · '}
           {layout.enterAction === 'fullscreen'
-            ? 'ОК — открыть камеру'
-            : 'ОК — включить звук'}
+            ? t('tv.okOpenCamera')
+            : t('tv.okToggleSound')}
         </Text>
       </View>
     </View>
@@ -324,10 +327,10 @@ export default function TvGridScreen({
  * Показываем и число камер, и форму сетки: при размере 6 непонятно,
  * будет это 3×2 или 2×3, а оператор ожидает увидеть именно форму.
  */
-function gridLabel(size: GridSize): string {
+function gridLabel(size: GridSize, t: TFunction): string {
   const { columns, rows } = tilePositions(size);
-  if (size === 1) return 'Одна камера';
-  return `${columns}×${rows} · камер: ${size}`;
+  if (size === 1) return t('tv.gridOneCamera');
+  return t('tv.gridLabelMany', { columns, rows, size });
 }
 
 const styles = StyleSheet.create({

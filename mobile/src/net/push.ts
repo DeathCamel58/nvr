@@ -22,6 +22,7 @@
 import { NativeModules, Platform } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 
+import { t } from '../i18n';
 import type { ApiClient } from './api';
 
 /** Экран, который нужно открыть после нажатия на уведомление. */
@@ -179,7 +180,7 @@ function showAlert(message: {
   data?: PushData;
   messageId?: string;
 }): void {
-  const title = message.notification?.title ?? 'Тревога';
+  const title = message.notification?.title ?? t('net.alarmTitle');
   const body = message.notification?.body ?? '';
   // Идентификатор события с сервера: разные тревоги не затирают друга,
   // а повтор одного события не создаёт второе уведомление.

@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
 import { colors } from '../theme';
 
 /**
@@ -22,17 +24,18 @@ export default function BlockedScreen({
   message: string;
   onSignOut: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Доступ закрыт</Text>
+        <Text style={styles.title}>{t('blocked.title')}</Text>
         <Text style={styles.message}>{message}</Text>
 
         {/* Кнопка выхода нужна не для «починить», а чтобы можно было
             подключиться к другому серверу или войти другой учётной записью:
             без неё телефон оставался бы в тупике до переустановки. */}
         <TouchableOpacity style={styles.button} onPress={onSignOut}>
-          <Text style={styles.buttonText}>Выйти</Text>
+          <Text style={styles.buttonText}>{t('blocked.signOut')}</Text>
         </TouchableOpacity>
       </View>
     </View>

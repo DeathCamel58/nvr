@@ -1,0 +1,25 @@
+const access = {
+  openDoorTitle: 'Открыть дверь?',
+  cancel: 'Отмена',
+  open: 'Открыть',
+  title: 'Доступ',
+  toCameras: 'К камерам',
+  tabDoors: 'Двери',
+  tabEvents: 'События',
+  noControllers: 'Контроллеры не найдены',
+  online: 'на связи',
+  offline: 'нет связи',
+  noEvents: 'Событий пока нет',
+  cardNotSpecified: 'карта не указана',
+  mediaClip: 'видео',
+  mediaSnapshot: 'снимок',
+  eventPassage: 'Проход',
+  eventAccessGranted: 'Доступ разрешён',
+  eventAccessDenied: 'Доступ запрещён',
+  eventRemoteOpen: 'Открыто вручную',
+  eventDoorForced: 'Взлом двери',
+  eventDoorOpen: 'Дверь открыта',
+  eventDoorClosed: 'Дверь закрыта',
+};
+
+export default access;

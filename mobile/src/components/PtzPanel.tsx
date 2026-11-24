@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import type { ApiClient } from '../net/api';
 import { describeNetworkError } from '../net/api';
 import { colors, radius, spacing } from '../theme';
@@ -50,6 +51,7 @@ export default function PtzPanel({
   /** Сообщает экрану о проблеме: у камер бывают заняты моторы или нет прав. */
   onError?: (message: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const [presets, setPresets] = useState<Array<{ token: string; name?: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [speed, setSpeed] = useState<SpeedKey>('slow');
@@ -121,8 +123,8 @@ export default function PtzPanel({
       </View>
 
       <View style={styles.zoomColumn}>
-        <Button label="+ зум" onPress={() => step(0, 0, 1)} disabled={busy} wide />
-        <Button label="− зум" onPress={() => step(0, 0, -1)} disabled={busy} wide />
+        <Button label={t('ptz.zoomIn')} onPress={() => step(0, 0, 1)} disabled={busy} wide />
+        <Button label={t('ptz.zoomOut')} onPress={() => step(0, 0, -1)} disabled={busy} wide />
       </View>
 
       {/* Темп движения: у камер парка максимальная скорость слишком высокая,
@@ -135,7 +137,11 @@ export default function PtzPanel({
             onPress={() => setSpeed(key)}
           >
             <Text style={styles.speedText}>
-              {key === 'slow' ? 'медленно' : key === 'normal' ? 'средне' : 'быстро'}
+              {key === 'slow'
+                ? t('ptz.speedSlow')
+                : key === 'normal'
+                  ? t('ptz.speedNormal')
+                  : t('ptz.speedFast')}
             </Text>
           </Pressable>
         ))}

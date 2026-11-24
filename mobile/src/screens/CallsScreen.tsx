@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useApp } from '../state/AppContext';
 import { useSip } from '../state/SipContext';
@@ -28,6 +29,7 @@ import type { SipAccountBrief, SipGroupBrief } from '../types';
  * списке она только сбивала бы с толку.
  */
 export default function CallsScreen({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
   const { client } = useApp();
   const { line, snapshot, call, error: lineError, loading: lineLoading, reload, batteryExempt, requestBattery } = useSip();
 
@@ -42,7 +44,7 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
   const [videoOn, setVideoOn] = useState(true);
   // Состояние микрофона: проверяем при открытии экрана, потому что без него
   // звонок не уходит, а причина снаружи не видна.
-  const [microphone, setMicrophone] = useState('проверяю…');
+  const [microphone, setMicrophone] = useState(() => t('calls.microphoneChecking'));
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -92,22 +94,25 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
 
   const registrationText = (() => {
     if (lineError) return lineError;
-    if (lineLoading) return 'Получаю номер…';
-    if (!line) return 'Телефония не настроена';
+    if (lineLoading) return t('calls.gettingNumber');
+    if (!line) return t('calls.telephonyNotConfigured');
     switch (snapshot.registration) {
       case 'registered':
-        return `Линия ${line.number} · на связи`;
+        return t('calls.lineOnline', { number: line.number });
       case 'connecting':
         // Причину обрыва показываем и здесь: соединение рвётся в фоне, и
         // без текста строка «подключение…» выглядела бы как обычный запуск,
         // хотя на самом деле линия только что была потеряна.
         return snapshot.registrationError
-          ? `Линия ${line.number} · ${snapshot.registrationError}`
-          : `Линия ${line.number} · подключение…`;
+          ? t('calls.lineWithStatus', { number: line.number, status: snapshot.registrationError })
+          : t('calls.lineConnecting', { number: line.number });
       case 'failed':
-        return `Линия ${line.number} · ${snapshot.registrationError || 'нет связи'}`;
+        return t('calls.lineWithStatus', {
+          number: line.number,
+          status: snapshot.registrationError || t('calls.noConnection'),
+        });
       default:
-        return `Линия ${line.number}`;
+        return t('calls.line', { number: line.number });
     }
   })();
 
@@ -125,9 +130,9 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={onBack} style={styles.back} hitSlop={12}>
-          <Text style={styles.backText}>‹ Назад</Text>
+          <Text style={styles.backText}>{t('calls.back')}</Text>
         </Pressable>
-        <Text style={styles.title}>Звонки</Text>
+        <Text style={styles.title}>{t('calls.title')}</Text>
       </View>
 
       <View style={styles.statusRow}>
@@ -144,7 +149,7 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
         </Text>
         {!registered && (
           <Pressable onPress={() => void reload()} hitSlop={8}>
-            <Text style={styles.retry}>Обновить</Text>
+            <Text style={styles.retry}>{t('calls.refresh')}</Text>
           </Pressable>
         )}
       </View>
@@ -156,17 +161,19 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
           в самом клиенте. Убрать, когда фоновые переподключения перестанут
           доставлять хлопоты. */}
       <Text style={styles.diag} numberOfLines={2}>
-        {`линия: ${snapshot.registration}` +
-          ` · транспорт: ${snapshot.diag.connected ? 'есть' : 'нет'}` +
-          ` · перезапусков: ${snapshot.diag.restarts}` +
+        {t('calls.diagLine', { state: snapshot.registration }) +
+          t('calls.diagTransport', {
+            state: snapshot.diag.connected ? t('calls.yes') : t('calls.no'),
+          }) +
+          t('calls.diagRestarts', { restarts: snapshot.diag.restarts }) +
           (snapshot.diag.registeredAgo >= 0
-            ? ` · регистрация ${snapshot.diag.registeredAgo} с назад`
+            ? t('calls.diagRegisteredAgo', { seconds: snapshot.diag.registeredAgo })
             : '')}
       </Text>
       {/* Проверка медиа: без микрофона вызвать никого нельзя, а снаружи это
           выглядит как «станция не отвечает». Пусть будет видно заранее. */}
-      <Text style={styles.diag} numberOfLines={2}>{`микрофон: ${microphone}`}</Text>
-      <Text style={styles.diag} numberOfLines={3}>{`события: ${snapshot.diag.events.join(' → ')}`}</Text>
+      <Text style={styles.diag} numberOfLines={2}>{t('calls.diagMicrophone', { state: microphone })}</Text>
+      <Text style={styles.diag} numberOfLines={3}>{t('calls.diagEvents', { events: snapshot.diag.events.join(' → ') })}</Text>
 
       {/* Видео можно выключить перед звонком: на слабом телефоне или в
           мобильной сети так надёжнее, а звук остаётся. */}
@@ -178,7 +185,7 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
         <View style={[styles.checkbox, videoOn && styles.checkboxOn]}>
           {videoOn && <Text style={styles.checkmark}>✓</Text>}
         </View>
-        <Text style={styles.videoToggleText}>Звонить с видео</Text>
+        <Text style={styles.videoToggleText}>{t('calls.callWithVideo')}</Text>
       </Pressable>
 
       {/* Разрешение на работу в фоне.
@@ -187,10 +194,9 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
           снаружи всё выглядит исправным: линия на связи, уведомление висит. */}
       {batteryExempt === false && (
         <Pressable style={styles.batteryNotice} onPress={requestBattery}>
-          <Text style={styles.batteryTitle}>Разрешите работу в фоне</Text>
+          <Text style={styles.batteryTitle}>{t('calls.allowBackgroundTitle')}</Text>
           <Text style={styles.batteryText}>
-            Иначе телефон не принимает вызовы, когда свёрнут или заблокирован. Нажмите и
-            выберите «Разрешить».
+            {t('calls.allowBackgroundText')}
           </Text>
         </Pressable>
       )}
@@ -214,7 +220,7 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
           }
           ListHeaderComponent={
             <Text style={styles.sectionTitle}>
-              {groups.length ? 'Группы вызова' : ''}
+              {groups.length ? t('calls.callGroups') : ''}
             </Text>
           }
           renderItem={({ item: row }) => {
@@ -226,12 +232,12 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
             // Ветки разные, потому что поля у этих сущностей не совпадают.
             const title =
               row.type === 'group'
-                ? row.item.name || 'Группа вызова'
-                : row.item.display_name || 'Абонент';
+                ? row.item.name || t('calls.callGroup')
+                : row.item.display_name || t('calls.subscriber');
 
             return (
               <View>
-                {isFirstAccount && <Text style={styles.sectionTitle}>Абоненты</Text>}
+                {isFirstAccount && <Text style={styles.sectionTitle}>{t('calls.subscribers')}</Text>}
                 <Pressable
                   style={styles.row}
                   disabled={!registered || busy || !line}
@@ -252,7 +258,7 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
                     ]}
                   />
                   <Text style={[styles.action, !registered && styles.actionDim]}>
-                    {registered ? 'Позвонить' : 'Нет связи'}
+                    {registered ? t('calls.call') : t('calls.noConnection')}
                   </Text>
                 </Pressable>
               </View>
@@ -260,8 +266,7 @@ export default function CallsScreen({ onBack }: { onBack: () => void }) {
           }}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              Список пуст: абоненты домофонии не заведены или у вашей учётной записи нет права
-              их видеть.
+              {t('calls.emptyList')}
             </Text>
           }
         />

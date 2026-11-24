@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
 import { colors, radius, spacing } from '../theme';
@@ -28,6 +29,7 @@ export default function LoginScreen({
   onLoggedIn: () => void;
   onOpenServers: () => void;
 }) {
+  const { t } = useTranslation();
   const { current, client, signIn, signOut, authNotice } = useApp();
   const [username, setUsername] = useState(current?.username ?? 'admin');
   const [password, setPassword] = useState('');
@@ -36,11 +38,11 @@ export default function LoginScreen({
 
   const handleLogin = async () => {
     if (!client) {
-      setError('Сервер не выбран');
+      setError(t('login.noServer'));
       return;
     }
     if (!username.trim() || !password) {
-      setError('Введите логин и пароль');
+      setError(t('login.enterCredentials'));
       return;
     }
 
@@ -60,7 +62,7 @@ export default function LoginScreen({
       const expiresAt = result.expires_at * 1000;
       if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
         await signOut();
-        setError('Сервер выдал просроченный токен: проверьте время на сервере');
+        setError(t('login.expiredToken'));
         return;
       }
 
@@ -81,7 +83,7 @@ export default function LoginScreen({
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Вход</Text>
+        <Text style={styles.title}>{t('login.title')}</Text>
 
         {authNotice && !error && (
           <Text style={styles.notice}>{authNotice}</Text>
@@ -89,14 +91,14 @@ export default function LoginScreen({
 
         {current && (
           <Pressable style={styles.serverCard} onPress={onOpenServers}>
-            <Text style={styles.serverLabel}>Сервер</Text>
+            <Text style={styles.serverLabel}>{t('login.server')}</Text>
             <Text style={styles.serverName}>{current.name}</Text>
             <Text style={styles.serverUrl}>{current.baseUrl}</Text>
-            <Text style={styles.serverChange}>Сменить сервер</Text>
+            <Text style={styles.serverChange}>{t('login.changeServer')}</Text>
           </Pressable>
         )}
 
-        <Text style={styles.label}>Логин</Text>
+        <Text style={styles.label}>{t('login.username')}</Text>
         <TextInput
           style={styles.input}
           value={username}
@@ -107,7 +109,7 @@ export default function LoginScreen({
           placeholderTextColor={colors.textMuted}
         />
 
-        <Text style={styles.label}>Пароль</Text>
+        <Text style={styles.label}>{t('login.password')}</Text>
         <TextInput
           style={styles.input}
           value={password}
@@ -135,7 +137,7 @@ export default function LoginScreen({
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.primaryButtonText}>Войти</Text>
+            <Text style={styles.primaryButtonText}>{t('login.signIn')}</Text>
           )}
         </Pressable>
       </ScrollView>

@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { t } from '../i18n';
 import { ApiClient } from '../net/api';
 import { startPush, stopPush } from '../net/push';
 import { parseAddress } from '../net/address';
@@ -163,7 +164,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Показываем экран входа, но сервер из списка НЕ удаляем: адрес и
       // логин по-прежнему верны, вводить нужно только пароль.
       onAuthLost: () => {
-        setAuthNotice('Срок сессии истёк — войдите снова');
+        setAuthNotice(t('app.sessionExpired'));
         setToken(null);
       },
       // Учётную запись закрыл администратор. Вход заново не поможет:
@@ -198,7 +199,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async (name: string, address: string, username?: string) => {
       const parsed = parseAddress(address);
       if (!parsed) {
-        throw new Error('Не удалось разобрать адрес сервера');
+        throw new Error(t('app.badServerAddress'));
       }
 
       // Один и тот же адрес не должен попадать в список дважды: при

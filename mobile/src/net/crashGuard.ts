@@ -11,6 +11,8 @@
 
 import { Alert } from 'react-native';
 
+import { t } from '../i18n';
+
 let installed = false;
 
 export function installCrashGuard(): void {
@@ -35,7 +37,7 @@ export function installCrashGuard(): void {
     const stack = error instanceof Error ? error.stack ?? '' : '';
 
     Alert.alert(
-      isFatal ? 'Приложение столкнулось с ошибкой' : 'Ошибка',
+      isFatal ? t('net.crashFatalTitle') : t('net.crashTitle'),
       `${message}\n\n${stack.split('\n').slice(0, 6).join('\n')}`.trim(),
     );
 
