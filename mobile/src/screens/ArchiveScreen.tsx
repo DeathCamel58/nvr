@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Pressable,
   RefreshControl,
@@ -111,6 +112,17 @@ export default function ArchiveScreen({
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState<Recording | null>(null);
   const [playError, setPlayError] = useState<string | null>(null);
+
+  // «Назад» системы закрывает открытую запись, как и кнопка в плеере: иначе
+  // роутер ушёл бы со всего архива и список записей с фильтрами пропал бы.
+  useEffect(() => {
+    if (!playing) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setPlaying(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [playing]);
   // Фильтр по камере: пусто — весь архив.
   const [cameraFilter, setCameraFilter] = useState<string | null>(
     camera?.id ?? null,

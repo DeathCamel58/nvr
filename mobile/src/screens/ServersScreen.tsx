@@ -4,7 +4,6 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
-  BackHandler,
   Modal,
   Platform,
   Pressable,
@@ -45,17 +44,6 @@ export default function ServersScreen({
   const [showScan, setShowScan] = useState(false);
   const [checking, setChecking] = useState<string | null>(null);
   const [statuses, setStatuses] = useState<Record<string, string>>({});
-
-  // Сканер QR-кода — обычный слой поверх экрана, а не окно: «назад» системы
-  // должна закрывать его, а не уводить с экрана серверов.
-  useEffect(() => {
-    if (!showScan) return;
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setShowScan(false);
-      return true;
-    });
-    return () => subscription.remove();
-  }, [showScan]);
 
   /**
    * Проверяет сервер запросом к /health.

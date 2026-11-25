@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -49,6 +50,23 @@ export default function QrScanScreen({
    * подключение выглядело бы сломанным.
    */
   const handled = useRef(false);
+
+  /**
+   * Кнопка «назад» системы Android.
+   *
+   * Сканер — слой поверх экрана серверов, а не окно, поэтому «назад» должна
+   * закрывать именно его, а не уводить дальше. Пока идёт подключение, «назад»
+   * гасим и не закрываем сканер: запрос уже ушёл, токен будет сохранён, и
+   * закрытый сканер всё равно перешёл бы вперёд, когда подключение завершится.
+   * Та же логика у кнопки «Отмена» на экране.
+   */
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!busy) onBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [busy, onBack]);
 
   /**
    * Разрешение на камеру.
@@ -116,7 +134,7 @@ export default function QrScanScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('qr.title')}</Text>
-        <Pressable style={styles.headerButton} onPress={onBack}>
+        <Pressable style={styles.headerButton} onPress={onBack} disabled={busy}>
           <Text style={styles.headerButtonText}>{t('qr.cancel')}</Text>
         </Pressable>
       </View>
