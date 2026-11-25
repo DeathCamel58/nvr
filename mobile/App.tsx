@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, BackHandler, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { SipProvider } from './src/state/SipContext';
@@ -67,6 +67,28 @@ function Router() {
       }),
     [],
   );
+  /**
+   * Кнопка «назад» системы Android.
+   *
+   * Навигация здесь своя, а не из библиотеки, поэтому система о ней ничего не
+   * знает: без обработчика «назад» на любом экране закрывала бы приложение.
+   * С любого экрана возвращаем к списку камер; из списка серверов, открытого
+   * с экрана входа (токена ещё нет), — обратно ко входу. Из списка камер,
+   * с экрана входа и при блокировке возвращаем false: там приложение
+   * закрывается, как и положено.
+   */
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!current || blockedNotice) return false;
+      if (route.name === 'servers' || (token && route.name !== 'cameras')) {
+        setRoute({ name: 'cameras' });
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [current, token, blockedNotice, route.name]);
+
   // Пока состояние не прочитано с диска, показывать нечего: иначе экран
   // входа мигнёт перед тем, как приложение вспомнит сохранённый токен.
   if (!ready) {
