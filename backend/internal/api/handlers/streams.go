@@ -186,6 +186,18 @@ func (h *StreamHandler) GetStream(w http.ResponseWriter, r *http.Request) {
 		Snapshot:  snapshot,
 	}
 
+	// Если доп. потока у камеры нет, go2rtc не создаёт путь <id>_sub, и
+	// отданные Sub*-адреса — обещание, которое оборачивается 404. Пустые
+	// поля говорят клиенту правду, и сетка играет основной поток.
+	if subRTSP == "" {
+		info.SubHLS, info.SubMSE, info.SubWebRTC = "", "", ""
+	}
+	// Симметрично для основного: камера может быть настроена только на доп.
+	// поток (main_stream пуст) — тогда пути <id> в go2rtc тоже нет.
+	if mainRTSP == "" {
+		info.RTSP, info.MSE, info.WebRTC, info.HLS, info.MainHLS = "", "", "", "", ""
+	}
+
 	writeJSON(w, http.StatusOK, info)
 }
 
