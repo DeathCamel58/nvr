@@ -31,8 +31,8 @@ const ToastContext = createContext<ToastContextType>({
 
 let toastId = 0
 
-// Сколько сообщений держим одновременно. Одинаковые тексты не дублируем:
-// повторяющаяся ошибка не должна заслонять интерфейс.
+// Сколько сообщений держим одновременно. Повторяющиеся ошибки не дублируем
+// (см. addToast), а общий предел не даёт списку разрастаться.
 const MAX_VISIBLE = 5
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -41,7 +41,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const addToast = useCallback((message: string, type: Toast['type']) => {
     const id = ++toastId
     setToasts((prev) => {
-      if (prev.some((t) => t.message === message && t.type === type)) return prev
+      // Повторяющуюся ошибку не дублируем: зацикленный сбой не должен
+      // заваливать экран. Успешные сообщения относятся к разным действиям
+      // (например, две проверки камер подряд) — их показываем оба раза.
+      if (type === 'error' && prev.some((t) => t.message === message && t.type === type)) return prev
       const next = [...prev, { id, message, type }]
       return next.length > MAX_VISIBLE ? next.slice(next.length - MAX_VISIBLE) : next
     })

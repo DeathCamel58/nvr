@@ -531,7 +531,7 @@ export default function GridPage() {  const toast = useToast()
                   className="btn btn-outline btn-sm"
                   onClick={() => setReloadKey((k) => k + 1)}
                 >
-                  <RefreshCw size={13} /> {t('gridPage.retry')}
+                  <RefreshCw size={13} /> {t('common.retry')}
                 </button>
               </div>
             ) : cameras.length === 0 ? (
