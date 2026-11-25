@@ -443,7 +443,9 @@ export default function CameraDetailPage() {  const { id } = useParams<{ id: str
                 webrtcUrl={
                   activeStream === 'main'
                     ? (streamInfo?.webrtc_url || '')
-                    : (streamInfo?.sub_webrtc_url || '')
+                    // Если доп. потока у камеры нет, его URL пуст — плеер
+                    // молча остался бы на MSE. Берём основной.
+                    : (streamInfo?.sub_webrtc_url || streamInfo?.webrtc_url || '')
                 }
                 muted={true}
                 volume={0.7}

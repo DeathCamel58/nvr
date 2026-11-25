@@ -384,6 +384,11 @@ export default function GridPage() {  const toast = useToast()
                 const order = camera ? selectedCameras.findIndex((c) => c.id === camera.id) : -1
                 const canPlay = camera && order >= 0 && order < readyCount && isOnline(camera)
 
+                // Доп. поток есть только если у камеры задан sub-URL. Иначе
+                // go2rtc не регистрирует путь <id>_sub, и запрос к нему
+                // возвращает 404 «stream not found» — играем основной поток.
+                const hasSub = Boolean(camera && streams[camera.id]?.sub_rtsp_url)
+
                 if (!camera) {
                   return (
                     <div
@@ -422,11 +427,11 @@ export default function GridPage() {  const toast = useToast()
                        * каждой из них положил бы и сеть, и машину.
                        */
                       <LivePlayer
-                        key={`${camera.id}-sub`}
-                        mseUrl={streams[camera.id]?.sub_mse_url}
+                        key={`${camera.id}-${hasSub ? 'sub' : 'main'}`}
+                        mseUrl={hasSub ? streams[camera.id]?.sub_mse_url : streams[camera.id]?.mse_url}
                         // WebRTC — запасной путь: если MSE в ячейке не поднялся,
                         // плеер перейдёт на него (или наоборот — порядок задаёт preferMse).
-                        webrtcUrl={streams[camera.id]?.sub_webrtc_url}
+                        webrtcUrl={hasSub ? streams[camera.id]?.sub_webrtc_url : streams[camera.id]?.webrtc_url}
                         // В сетке WebRTC не первым (preferMse): десятки
                         // соединений с ICE/DTLS перегрузят канал, а в мелкой
                         // ячейке разницы в задержке не видно.
@@ -462,14 +467,18 @@ export default function GridPage() {  const toast = useToast()
                       }}>
                         {camera.name}
                       </span>
-                      {/* Пометка SUB: оператор видит, что поток облегчённый */}
-                      <span style={{
-                        background: 'rgba(255,255,255,0.18)', color: '#fff',
-                        padding: '1px 5px', borderRadius: 3, fontSize: 9,
-                        fontWeight: 700, letterSpacing: 0.4, flexShrink: 0,
-                      }}>
-                        SUB
-                      </span>
+                      {/* Пометка SUB: оператор видит, что поток облегчённый.
+                          У камеры без доп. потока пометки нет — иначе она
+                          обещала бы качество, которого нет. */}
+                      {hasSub && (
+                        <span style={{
+                          background: 'rgba(255,255,255,0.18)', color: '#fff',
+                          padding: '1px 5px', borderRadius: 3, fontSize: 9,
+                          fontWeight: 700, letterSpacing: 0.4, flexShrink: 0,
+                        }}>
+                          SUB
+                        </span>
+                      )}
                     </div>
 
                     {/* Кнопка разворота */}
