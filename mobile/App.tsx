@@ -88,8 +88,10 @@ function Router() {
     return <BlockedScreen message={blockedNotice} onSignOut={() => void signOut()} />;
   }
 
-  // Токена нет — нужен вход.
-  if (!token) {
+  // Токена нет — нужен вход. Список серверов открыт из самого экрана входа
+  // («Сменить сервер»), поэтому без токена его тоже надо показывать: иначе
+  // эта ветка перехватывала бы управление, а кнопка ничего бы не делала.
+  if (!token && route.name !== 'servers') {
     return (
       <LoginScreen
         onLoggedIn={() => setRoute({ name: 'cameras' })}
