@@ -61,6 +61,19 @@ export default function LivePlayer({
   const hlsRetriesRef = useRef(0);
   const [hlsReloadKey, setHlsReloadKey] = useState(0);
 
+  // Актуальные адрес HLS и обработчик отказа для асинхронной ветки WebRTC.
+  // Через ref, а не через зависимости эффекта: hlsPath приходит после
+  // первого рендера, и перезапуск эффекта из-за него разрывал бы уже
+  // поднимающееся соединение.
+  const hlsPathRef = useRef(hlsPath);
+  const onFailedRef = useRef(onFailed);
+  useEffect(() => {
+    hlsPathRef.current = hlsPath;
+  }, [hlsPath]);
+  useEffect(() => {
+    onFailedRef.current = onFailed;
+  }, [onFailed]);
+
   // Пробуем WebRTC. Эффект перезапускается только при смене камеры или потока:
   // перерисовка родителя не должна рвать живое соединение.
   useEffect(() => {
@@ -85,9 +98,15 @@ export default function LivePlayer({
         if (cancelled) return;
         // Причину не показываем: для оператора важно, что видео будет,
         // а не каким транспортом. Подробность остаётся в подписи внизу.
-        setStatus(t('player.fallback'));
+        const hasHls = !!hlsPathRef.current;
+        setStatus(t(hasHls ? 'player.fallback' : 'player.unavailable'));
         setTransport('hls');
-        onTransport?.('hls');
+        onTransport?.(hasHls ? 'hls' : null);
+        // Пустой адрес HLS означает, что этого потока у камеры нет:
+        // резервная ветка не смонтируется, и onError у Video никогда не
+        // сработает. Сообщаем экрану сразу, чтобы он выбрал существующий
+        // поток, а не оставлял человека на заглушке.
+        if (!hasHls) onFailedRef.current?.();
       }
     })();
 
@@ -115,6 +134,13 @@ export default function LivePlayer({
   useEffect(() => {
     hlsRetriesRef.current = 0;
     setHlsReloadKey((value) => value + 1);
+    // Смена камеры или потока — снова начинаем с WebRTC.
+    //
+    // После сбоя основного потока транспорт остаётся HLS, и без сброса
+    // переключение на дополнительный сразу открыло бы HLS, хотя WebRTC для
+    // него может работать: оператор остался бы на медленном транспорте без
+    // звука внутри потока. Каждый выбранный поток проверяем заново.
+    setTransport('webrtc');
   }, [cameraId, sub]);
 
   /**
@@ -133,7 +159,7 @@ export default function LivePlayer({
     // Повторы исчерпаны. Раньше здесь просто оставался чёрный экран с
     // подписью HLS, и оператор не понимал, что поток не идёт. Теперь
     // экран может переключиться на дополнительный поток.
-    onFailed?.();
+    onFailedRef.current?.();
   };
 
   return (

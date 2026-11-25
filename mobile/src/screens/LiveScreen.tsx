@@ -3,13 +3,17 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../state/AppContext';
 import { describeNetworkError } from '../net/api';
+import {
+  fallbackStreamKind,
+  otherStreamKind,
+  streamAvailability,
+  streamHlsPath,
+  type StreamKind,
+} from '../net/streams';
 import LivePlayer from '../components/LivePlayer';
 import PtzPanel from '../components/PtzPanel';
 import { colors, radius, spacing } from '../theme';
 import type { AudioStatus, Camera, StreamInfo } from '../types';
-
-/** Тип потока камеры: основной или дополнительный. */
-type StreamKind = 'sub' | 'main';
 
 /**
  * Онлайн-просмотр камеры.
@@ -20,7 +24,9 @@ type StreamKind = 'sub' | 'main';
  *
  * По умолчанию открывается дополнительный поток (704×576): он заметно
  * экономичнее по трафику и батарее, что важно за пределами локальной сети.
- * Переключиться на основной можно кнопкой — при этом поток на сервере
+ * Если у камеры есть только основной, экран сразу открывает его: пустой
+ * адрес отсутствующего потока не смонтировал бы плеер, и просмотр замер бы
+ * на заглушке. Переключиться можно кнопкой — при этом поток на сервере
  * пересоздаётся, поэтому плеер закрывает прежнее соединение.
  */
 export default function LiveScreen({
@@ -42,10 +48,17 @@ export default function LiveScreen({
   const [audio, setAudio] = useState<AudioStatus | null>(null);
   const [talking, setTalking] = useState(false);
   const [ptzError, setPtzError] = useState<string | null>(null);
-  // Автоматический переход на дополнительный поток уже выполнялся.
+  // Автоматический переход между потоками уже выполнялся.
   // Ограничение нужно, чтобы при отказе обоих потоков экран не
   // переключался между ними бесконечно.
   const [fellBack, setFellBack] = useState(false);
+
+  /**
+   * Какие потоки у камеры есть на самом деле.
+   *
+   * null — адреса ещё не получены: до этого момента выбор не трогаем.
+   */
+  const available = useMemo(() => streamAvailability(stream), [stream]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,17 +93,32 @@ export default function LiveScreen({
   }, [client, camera.id]);
 
   /**
-   * Адрес HLS-плейлиста — резервный путь.
+   * Адрес HLS-плейлиста выбранного потока — резервный путь.
    *
    * Нужен только на случай, когда WebRTC не поднимается. Сервер отдаёт
    * путь относительным, поэтому базовый адрес приклеивает плеер.
    */
-  const hlsPath = useMemo(() => {
-    if (!stream) return null;
-    return kind === 'sub'
-      ? stream.sub_hls_url || stream.hls_url || null
-      : stream.main_hls_url || stream.hls_url || null;
-  }, [stream, kind]);
+  const hlsPath = useMemo(() => streamHlsPath(stream, kind), [stream, kind]);
+
+  // Если выбранного потока у камеры нет — уводим на существующий.
+  //
+  // Сервер отдаёт пустые адреса для отсутствующего потока, и плеер с
+  // пустым HLS-адресом не смонтируется: экран навсегда остался бы на
+  // заглушке. Так просмотр Main у камеры только с доп. потоком (и Sub у
+  // камеры только с основным) сам переходит на рабочую картинку.
+  useEffect(() => {
+    if (!available) return;
+    const next = fallbackStreamKind(kind, available);
+    if (next !== kind) setKind(next);
+  }, [available, kind]);
+
+  /** Поток, на который ведёт переключатель. */
+  const otherKind = otherStreamKind(kind);
+  // Переключатель ведёт только на существующий поток: иначе камера с
+  // одним потоком открывала бы пустой адрес и снова показывала заглушку.
+  // Пока адреса не получены, кнопка тоже неактивна — выбирать вслепую
+  // нечего.
+  const canSwitch = available ? available[otherKind] : false;
 
   const switchStream = () => {
     setFellBack(false);
@@ -99,7 +127,7 @@ export default function LiveScreen({
   };
 
   /**
-   * Основной поток не поднялся ни по WebRTC, ни по HLS.
+   * Выбранный поток не поднялся ни по WebRTC, ни по HLS.
    *
    * У части камер основной поток 4К и упирается в лимит RTSP-сессий:
    * камера отвечает «453 Live memory budget is full». Дополнительный
@@ -107,10 +135,23 @@ export default function LiveScreen({
    * картинку, чем остаться с чёрным экраном.
    */
   const handlePlayerFailed = () => {
-    if (kind === 'main' && !fellBack) {
+    if (fellBack) return;
+
+    // Уводим только на поток, который сервер подтвердил. Иначе сбой
+    // основного на камере без дополнительного переключил бы экран на
+    // пустой адрес, и заглушка осталась бы навсегда. Пока адреса не
+    // получены (available === null), сохраняем прежнее поведение: с
+    // основного уходим на дополнительный, он чаще работает.
+    if (available && !available[otherKind]) return;
+
+    // С основного при сбое уходим на дополнительный — это прежнее
+    // поведение. В обратную сторону переключаемся только тогда, когда
+    // дополнительного потока у камеры нет вовсе: при двух рабочих
+    // потоках сбой дополнительного не должен менять выбор оператора.
+    if (kind === 'main' || (available && !available.sub)) {
       setFellBack(true);
-      setKind('sub');
-      setError(t('live.mainStreamFailed'));
+      setKind(otherKind);
+      if (kind === 'main') setError(t('live.mainStreamFailed'));
     }
   };
 
@@ -144,7 +185,11 @@ export default function LiveScreen({
       ) : null}
 
       <View style={styles.buttons}>
-        <Pressable style={styles.button} onPress={switchStream} disabled={!stream}>
+        <Pressable
+          style={[styles.button, !canSwitch && styles.buttonDisabled]}
+          onPress={switchStream}
+          disabled={!canSwitch}
+        >
           <Text style={styles.buttonText}>
             {kind === 'sub' ? t('live.mainStream') : t('live.subStream')}
           </Text>
@@ -211,6 +256,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   buttonBack: { borderColor: colors.primary },
+  // Неактивный переключатель должен выглядеть неактивным: иначе на камере
+  // с одним потоком нажатие просто ничего не делает и похоже на сбой.
+  buttonDisabled: { opacity: 0.5 },
   buttonActive: { borderColor: colors.warning, backgroundColor: 'rgba(245,158,11,0.15)' },
   buttonText: { color: colors.text, fontSize: 14, fontWeight: '500' },
 
