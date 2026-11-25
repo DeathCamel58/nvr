@@ -1,5 +1,6 @@
 package com.open_nvr
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -175,7 +177,15 @@ class SipForegroundService : Service() {
             ACTION_UPDATE -> {
                 val title = intent.getStringExtra(EXTRA_TITLE) ?: defaultTitle()
                 val text = intent.getStringExtra(EXTRA_TEXT) ?: defaultText()
-                notificationManager().notify(NOTIFICATION_ID, buildNotification(title, text, false))
+                // Если микрофон выдали уже после старта службы, поднимаем её тип:
+                // обновление уведомления тип не меняет, и без этого служба
+                // осталась бы dataSync до перезапуска приложения, а система
+                // глушит микрофон у приложения в фоне без типа microphone.
+                if (foregroundTypes() != currentTypes) {
+                    startAsForeground(title, text)
+                } else {
+                    notificationManager().notify(NOTIFICATION_ID, buildNotification(title, text, false))
+                }
                 return START_STICKY
             }
 
@@ -215,18 +225,41 @@ class SipForegroundService : Service() {
         super.onTaskRemoved(rootIntent)
     }
 
+    /**
+     * Типы службы переднего плана для текущего состояния разрешений.
+     *
+     * С Android 14 тип microphone система разрешает, только если RECORD_AUDIO
+     * уже выдано: иначе startForeground бросает SecurityException, и
+     * приложение падает при первом запуске, ещё до запроса разрешения.
+     * Пока микрофона нет, служба держит линию как dataSync.
+     */
+    private fun foregroundTypes(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        val micGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && micGranted) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        } else {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        }
+    }
+
     private fun startAsForeground(title: String, text: String) {
         createChannel()
         acquireLocks()
         val notification = buildNotification(title, text, true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val types = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            } else {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            var types = foregroundTypes()
+            try {
+                startForeground(NOTIFICATION_ID, notification, types)
+            } catch (error: SecurityException) {
+                // Разрешение могли отозвать между проверкой и запуском:
+                // лучше служба без микрофона, чем падение приложения.
+                types = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                startForeground(NOTIFICATION_ID, notification, types)
             }
-            startForeground(NOTIFICATION_ID, notification, types)
+            currentTypes = types
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -339,6 +372,9 @@ class SipForegroundService : Service() {
     private fun defaultTitle(): String = "Домофония"
 
     private fun defaultText(): String = "Линия на связи"
+
+    /** Типы, с которыми служба сейчас поднята: по ним видно, что микрофон выдали позже. */
+    private var currentTypes = 0
 
     /** Блокировки, которые держат линию живой при погашенном экране. */
     private var wakeLock: PowerManager.WakeLock? = null
