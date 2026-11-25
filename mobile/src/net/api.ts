@@ -17,6 +17,7 @@ import type {
   SipGroupBrief,
   StreamInfo,
 } from '../types';
+import type { EventsPage } from '../events';
 import { t } from '../i18n';
 import type { SipLineInfo } from './sipClient';
 
@@ -486,6 +487,33 @@ export class ApiClient {
       throw toApiError(response.status, response.data, new Error('recording'));
     }
     return response.data as Recording;
+  }
+
+  /**
+   * Страница журнала событий детекции.
+   *
+   * Сервер уже фильтрует события по доступу к камерам, поэтому список
+   * приходит только с тем, что пользователю видно. Второй копии правила на
+   * телефоне нет и не нужно.
+   */
+  async listEvents(params: {
+    page?: number;
+    pageSize?: number;
+    cameraId?: string;
+    objectClass?: string;
+  }): Promise<EventsPage> {
+    const response = await this.http.get('/events', {
+      params: {
+        page: params.page ?? 1,
+        page_size: params.pageSize ?? 20,
+        camera_id: params.cameraId || undefined,
+        object_class: params.objectClass || undefined,
+      },
+    });
+    if (response.status !== 200) {
+      throw toApiError(response.status, response.data, new Error('events'));
+    }
+    return response.data as EventsPage;
   }
 
   /** Список контроллеров СКУД. */

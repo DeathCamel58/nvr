@@ -199,6 +199,7 @@ export default function CamerasScreen({
   onOpenServers,
   onOpenCalls,
   onOpenMissed,
+  onOpenEvents,
 }: {
   onOpenCamera: (camera: Camera) => void;
   onOpenArchive: () => void;
@@ -209,6 +210,8 @@ export default function CamerasScreen({
   onOpenCalls: () => void;
   /** Пропущенные вызовы: журнал недозвонённых попыток. */
   onOpenMissed: () => void;
+  /** Лента событий детекции: тревоги камер. */
+  onOpenEvents: () => void;
 }) {
   const { t } = useTranslation();
   const { client, current, token } = useApp();
@@ -300,6 +303,12 @@ export default function CamerasScreen({
           </Pressable>
           {/* Пропущенные — с числом за сутки: вызов с калитки легко
               пропустить, и счётчик на кнопке виден без открытия раздела. */}
+          {/* События — тревоги детекции. Отдельно от архива: архив про
+              видео, лента про происшествия, и искать их в одном списке
+              неудобно. */}
+          <Pressable style={styles.archiveButton} onPress={onOpenEvents}>
+            <Text style={styles.archiveButtonText}>{t('cameras.events')}</Text>
+          </Pressable>
           <Pressable style={styles.archiveButton} onPress={onOpenMissed}>
             <Text
               style={[

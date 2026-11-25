@@ -11,6 +11,7 @@ const cameras = {
   archive: 'Архив записей',
   access: 'Доступ',
   calls: 'Звонки',
+  events: 'События',
   missed: 'Пропущенные',
   missedWithCount: 'Пропущенные · {{count}}',
   empty: 'Камер пока нет',

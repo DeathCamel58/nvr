@@ -11,6 +11,7 @@ const cameras = {
   archive: 'Recordings archive',
   access: 'Access',
   calls: 'Calls',
+  events: 'Events',
   missed: 'Missed',
   missedWithCount: 'Missed · {{count}}',
   empty: 'No cameras yet',

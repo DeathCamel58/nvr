@@ -26,7 +26,8 @@ import { t } from '../i18n';
 import type { ApiClient } from './api';
 
 /** Экран, который нужно открыть после нажатия на уведомление. */
-export type PushOpenTarget = 'missed' | 'calls' | null;
+// 'events' — тревога детекции: открывается лента событий.
+export type PushOpenTarget = 'missed' | 'calls' | 'events' | null;
 
 type PushOpenListener = (target: PushOpenTarget) => void;
 
@@ -128,7 +129,13 @@ function targetOf(data: PushData | undefined): PushOpenTarget {
   }
   // Звонок в домофон ведёт на экран звонков, а не в журнал: человеку нужно
   // ответить или открыть дверь, а не читать, кто звонил.
-  return data?.type === 'incoming_call' ? 'calls' : null;
+  if (data?.type === 'incoming_call') {
+    return 'calls';
+  }
+  // Всё остальное с камерой — тревога детекции (object, line, face, plate,
+  // audio). Сервер кладёт в data поле camera_id, поэтому отличаем тревогу
+  // от прочих служебных сообщений без камеры.
+  return asText(data?.camera_id) ? 'events' : null;
 }
 
 /**

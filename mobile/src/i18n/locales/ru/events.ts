@@ -1,0 +1,31 @@
+const events = {
+  loading: 'Читаю журнал событий…',
+  title: 'События',
+  subtitleEmpty: 'журнал пуст',
+  subtitleCount_one: '{{count}} событие в журнале',
+  subtitleCount_few: '{{count}} события в журнале',
+  subtitleCount_many: '{{count}} событий в журнале',
+  subtitleCount_other: '{{count}} события в журнале',
+  toCameras: 'К камерам',
+  empty:
+    'Событий пока нет. Здесь появятся тревоги детекции: люди, машины, лица, номера.',
+  unknownCamera: 'Камера',
+  today: 'Сегодня, {{time}}',
+  yesterday: 'Вчера, {{time}}',
+  triggerObject: 'объект',
+  triggerLine: 'пересечение линии',
+  triggerFace: 'лицо',
+  triggerPlate: 'номер',
+  triggerAudio: 'звук',
+  triggerCamera: 'событие камеры',
+  class_person: 'Человек',
+  class_car: 'Машина',
+  class_truck: 'Грузовик',
+  class_bus: 'Автобус',
+  class_motorcycle: 'Мотоцикл',
+  class_bicycle: 'Велосипед',
+  class_dog: 'Собака',
+  class_cat: 'Кошка',
+};
+
+export default events;

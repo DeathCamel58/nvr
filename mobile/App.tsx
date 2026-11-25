@@ -23,6 +23,7 @@ import ArchiveScreen from './src/screens/ArchiveScreen';
 import AccessScreen from './src/screens/AccessScreen';
 import CallsScreen from './src/screens/CallsScreen';
 import MissedCallsScreen from './src/screens/MissedCallsScreen';
+import EventsScreen from './src/screens/EventsScreen';
 import CallOverlay from './src/screens/CallOverlay';
 import TvApp from './src/tv/TvApp';
 import { isTelevision } from './src/tv/device';
@@ -45,7 +46,8 @@ type Route =
   | { name: 'archive'; camera?: Camera }
   | { name: 'access' }
   | { name: 'calls' }
-  | { name: 'missed' };
+  | { name: 'missed' }
+  | { name: 'events' };
 
 function Router() {
   const { ready, current, token, blockedNotice, signOut } = useApp();
@@ -64,6 +66,10 @@ function Router() {
         // Звонок в домофон: открываем экран звонков — человеку нужно ответить
         // или открыть дверь, а не читать журнал.
         if (target === 'calls') setRoute({ name: 'calls' });
+        // Тревога детекции: открываем ленту событий. Раньше push вёл в
+        // журнал пропущенных звонков, и человек искал событие в чужом
+        // списке — звонков там нет.
+        if (target === 'events') setRoute({ name: 'events' });
       }),
     [],
   );
@@ -127,6 +133,9 @@ function Router() {
     case 'missed':
       return <MissedCallsScreen onBack={() => setRoute({ name: 'cameras' })} />;
 
+    case 'events':
+      return <EventsScreen onBack={() => setRoute({ name: 'cameras' })} />;
+
     case 'cameras':
     default:
       return (
@@ -136,6 +145,7 @@ function Router() {
           onOpenAccess={() => setRoute({ name: 'access' })}
           onOpenCalls={() => setRoute({ name: 'calls' })}
           onOpenMissed={() => setRoute({ name: 'missed' })}
+          onOpenEvents={() => setRoute({ name: 'events' })}
           onOpenServers={() => setRoute({ name: 'servers' })}
         />
       );

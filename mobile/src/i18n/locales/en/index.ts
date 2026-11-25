@@ -12,6 +12,7 @@ import archive from './archive';
 import access from './access';
 import calls from './calls';
 import missed from './missed';
+import events from './events';
 import callOverlay from './callOverlay';
 import net from './net';
 import sip from './sip';
@@ -33,6 +34,7 @@ const en = {
   access,
   calls,
   missed,
+  events,
   callOverlay,
   net,
   sip,
