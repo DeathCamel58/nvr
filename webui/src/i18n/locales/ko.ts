@@ -2122,6 +2122,10 @@ export default {
     system_temperature_hint: 'CPU 또는 그래픽카드 온도가 임계값을 넘었습니다',
     system_gpu_label: '그래픽카드 문제',
     system_gpu_hint: '카드를 사용할 수 없거나 한계에서 동작합니다',
+    system_acs_offline_label: '출입 제어 장치 연결 끊김',
+    system_acs_offline_hint: '인터컴, Z5R 또는 SKUD-01이 응답하지 않습니다',
+    system_acs_online_label: '출입 제어 장치 연결 복구',
+    system_acs_online_hint: '장치가 연결을 복구했습니다',
   },
 
   scannerPage: {

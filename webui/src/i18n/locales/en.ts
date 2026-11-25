@@ -2266,6 +2266,10 @@ export default {
     system_temperature_hint: 'The CPU or GPU temperature is above the threshold',
     system_gpu_label: 'A GPU problem',
     system_gpu_hint: 'The card is unavailable or running at its limit',
+    system_acs_offline_label: 'Access controller offline',
+    system_acs_offline_hint: 'Intercom, Z5R or SKUD-01 stopped responding',
+    system_acs_online_label: 'Access controller back online',
+    system_acs_online_hint: 'The device restored its connection',
   },
 
   scannerPage: {

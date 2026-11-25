@@ -2300,6 +2300,10 @@ export default {
     system_temperature_hint: 'Температура процессора или видеокарты выше порога',
     system_gpu_label: 'Проблема с видеокартой',
     system_gpu_hint: 'Карта недоступна или работает на пределе',
+    system_acs_offline_label: 'Пропал контроллер СКУД',
+    system_acs_offline_hint: 'Домофон, Z5R или SKUD-01 не отвечает в сети',
+    system_acs_online_label: 'Контроллер СКУД снова на связи',
+    system_acs_online_hint: 'Устройство восстановило соединение',
   },
 
   scannerPage: {

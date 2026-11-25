@@ -486,7 +486,7 @@ func main() {
 		monitor.NewSystemReaderAdapter(systemReader),
 		monitor.NewHardwareAdapter(hostAgent),
 		monitor.NewNotifierAdapter(notifier),
-	)
+	).WithACS(monitor.NewACSRepoSource(acsRepo))
 	go systemMonitor.Start(context.Background())
 
 	// Превью камер: одиночный кадр по HTTP вместо видеопотока.

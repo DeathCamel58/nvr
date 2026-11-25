@@ -2088,6 +2088,10 @@ export default {
     system_temperature_hint: 'CPU 或显卡温度超过阈值',
     system_gpu_label: '显卡出问题',
     system_gpu_hint: '显卡不可用或已经在极限上工作',
+    system_acs_offline_label: '门禁控制器离线',
+    system_acs_offline_hint: '对讲机、Z5R 或 SKUD-01 无响应',
+    system_acs_online_label: '门禁控制器已恢复',
+    system_acs_online_hint: '设备已恢复连接',
   },
 
   scannerPage: {

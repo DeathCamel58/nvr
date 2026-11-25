@@ -40,6 +40,15 @@ const (
 	// падения означают, что камере не хватает памяти или она деградирует,
 	// и одной перезагрузкой дело не решается.
 	SystemTriggerMajesticReboot = "system_majestic_reboot"
+	// SystemTriggerACSOffline — контроллер СКУД (домофон, Z5R, SKUD-01)
+	// пропал из сети.
+	//
+	// Отдельный тип, а не «камера пропала»: контроллер — это дверь, и его
+	// отключение означает, что люди не смогут войти. Раньше об этом
+	// узнавали только при попытке открыть дверь, то есть постфактум.
+	SystemTriggerACSOffline = "system_acs_offline"
+	// SystemTriggerACSOnline — контроллер снова на связи.
+	SystemTriggerACSOnline = "system_acs_online"
 )
 
 // SystemEvents — все системные типы в порядке отображения в интерфейсе.
@@ -57,6 +66,8 @@ var SystemEvents = []string{
 	SystemTriggerGPU,
 	SystemTriggerMajestic,
 	SystemTriggerMajesticReboot,
+	SystemTriggerACSOffline,
+	SystemTriggerACSOnline,
 }
 
 // IsSystemEvent сообщает, относится ли тип к состоянию сервера.
@@ -95,6 +106,10 @@ type SystemThresholds struct {
 	// CameraOfflineMinutes — сколько минут камера должна быть недоступна,
 	// прежде чем сообщить. Отсекает кратковременные обрывы связи, которые
 	// камера и go2rtc переживают сами.
+	//
+	// Тот же порог применяется к контроллерам СКУД: у них перезагрузка
+	// после сбоя питания тоже занимает десятки секунд, и мгновенная
+	// тревога была бы ложной.
 	CameraOfflineMinutes int `json:"camera_offline_minutes"`
 	// RepeatMinutes — пауза между повторными сообщениями об одной и той же
 	// неустранённой проблеме. Без неё неисправный диск слал бы уведомление

@@ -1,3 +1,14 @@
+# Ротация журналов Docker для всех сервисов сразу.
+#
+# Без этого json-журнал каждого контейнера растёт без предела: на стенде два
+# журнала заняли 401 и 295 МБ. Предел в 50 МБ на файл и 3 файла даёт не
+# больше 150 МБ на контейнер — при разборе этого хватает, а диск не растёт.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -7,6 +18,7 @@ services:
     # unless-stopped — поднимать контейнер при старте Docker и после сбоев,
     # но не запускать повторно, если он был остановлен вручную.
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: nvr
       POSTGRES_USER: nvr
@@ -52,6 +64,7 @@ services:
     image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     profiles: ["minio"]
     restart: unless-stopped
+    logging: *default-logging
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
@@ -84,6 +97,7 @@ services:
     image: andrius/asterisk@sha256:f0b8c936e7dba2675924b0c13e604d133e3e5253acc366cac8d270dfcff23f65
     profiles: ["sip"]
     restart: unless-stopped
+    logging: *default-logging
     # host-сеть нужна по той же причине, что и go2rtc: SIP и RTP должны быть
     # видны устройствам напрямую, а диапазон RTP — динамический, и пробрасывать
     # его через bridge пришлось бы сотней портов.
@@ -110,6 +124,7 @@ services:
     # свежести. Проверено на стенде: 1.9.14.
     image: alexxit/go2rtc:1.9.14
     restart: unless-stopped
+    logging: *default-logging
     # Предел памяти: go2rtc держит буферы всех потоков; без лимита
     # утечка в нём вытесняет хост в global OOM.
     mem_limit: 1g
@@ -141,11 +156,19 @@ services:
   # поток на RTSP-порт go2rtc, не разбирая протокол: заголовок
   # Authorization от внешнего клиента доходит до go2rtc как есть, и
   # пароль проверяет сам go2rtc.
+    healthcheck:
+      # go2rtc слушает API на петле хоста (host-сеть), и /api отвечает 200.
+      test: ["CMD-SHELL", "wget -qO- --timeout=3 http://127.0.0.1:1984/api >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
   rtsp-proxy:
     # Точная версия вместо alpine: этот nginx только проксирует RTSP-поток,
     # и его обновление ничего не улучшает, зато ломало конфигурацию прокси.
     image: nginx:1.31.6-alpine
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - ./rtsp-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
     # host-сеть: go2rtc слушает RTSP только на петле (порт 8554 отдавал
@@ -163,15 +186,25 @@ services:
     # Проверено на стенде: nats-server v2.14.5.
     image: nats:2.14.5-alpine
     restart: unless-stopped
+    logging: *default-logging
     command: "-js"
     ports:
       - "127.0.0.1:4222:4222"
 
+    healthcheck:
+      # Без system-account запрос $SYS недоступен, поэтому проверяем сам
+      # порт клиента: если он принимает соединение, брокер жив.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4222 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     # Предел памяти: ffmpeg-записи и буферы архива живут в контейнере.
     # Без лимита один разросшийся ffmpeg (7,7 ГБ) вызвал global OOM.
     mem_limit: 4g
@@ -324,11 +357,19 @@ services:
       go2rtc:
         condition: service_started
 
+    healthcheck:
+      # Порт 8080 слушается на хосте: у бэкенда host-сеть.
+      test: ["CMD-SHELL", "wget -qO- --timeout=3 http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
   webui:
     build:
       context: ./webui
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "3001:80"
     extra_hosts:
@@ -347,6 +388,13 @@ services:
   # и собирать: мастер установки не включает профиль, и `docker compose up -d`
   # не трогает эти два сервиса. Без профиля детекции и публикатор кадров
   # остаются выключенными вместе с ней — они работают только в паре.
+    healthcheck:
+      # nginx отдаёт SPA: любая страница — 200 с index.html.
+      test: ["CMD-SHELL", "wget -qO- --timeout=3 http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
   ai-detector:
     profiles: ["detection"]
     build:
@@ -366,6 +414,7 @@ services:
         # движков ничего не меняет.
         ONNXRUNTIME_PACKAGE: "${AI_ONNXRUNTIME_PACKAGE:-onnxruntime}"
     restart: unless-stopped
+    logging: *default-logging
     # Предел памяти: модели и буферы кадров. При утечке контейнер
     # перезапустится, но не вытеснит хост в global OOM.
     mem_limit: 5g
@@ -510,9 +559,19 @@ services:
       context: ./ai-detector
       dockerfile: Dockerfile.publisher
     restart: unless-stopped
-    # Предел памяти: ffmpeg-циклы кадров и номеров. Один такой процесс
-    # доходил до 650 МБ и продолжал расти.
-    mem_limit: 2g
+    logging: *default-logging
+    # Предел памяти: ffmpeg-циклы кадров и номеров.
+    #
+    # Считает не только Python: docker сравнивает с лимитом memory.current
+    # cgroup, а это анонимная память ВСЕХ процессов контейнера плюс его
+    # файловый кеш. Замер 25.11.2026: сам Python — 68 МБ (не растёт), а
+    # 24 дочерних ffmpeg — около 1,9 ГБ, из них один поток зоны номеров
+    # держал 405 МБ. При лимите 2 ГиБ запас был нулевой, и любой всплеск
+    # одновременных захватов убивал контейнер целиком — вместе с детекцией.
+    #
+    # 4 ГиБ: на хосте 15,9 ГиБ и больше 10 ГиБ доступно. Потеря от OOM
+    # дороже, чем запас памяти.
+    mem_limit: 4g
     # host-сеть нужна, чтобы дотянуться до камер в локальной сети (порт 554),
     # как это делает backend.
     network_mode: host
@@ -536,6 +595,14 @@ services:
       # 704×576, растягивать его незачем, а исходный размер виден в
       # метаданных события и нужен для наложения рамок.
       FRAME_WIDTH: "${FRAME_WIDTH:-0}"
+      # Сколько кадров детекции снимается ОДНОВРЕМЕННО.
+      #
+      # Каждый захват — отдельный ffmpeg на 50 МБ и около 1,4 секунды.
+      # Без предела 24 камеры запускали 24 процесса разом, и память
+      # контейнера упиралась в лимит (cgroup считает всех детей). Восемь
+      # одновременных достаточно: интервал кадра — секунда, и очередь
+      # успевает разобраться за тот же интервал.
+      FRAME_PARALLEL: "${FRAME_PARALLEL:-8}"
       CAMERA_RELOAD: "60"
       FFMPEG_TIMEOUT: "10"
       # Снимки событий «по запросу» из основного потока. 1920 — снимок
@@ -564,9 +631,13 @@ services:
       PLATE_SOURCE_STREAM: "${AI_PLATE_SOURCE:-main}"
       # Ширина кадра номеров из основного потока. 0 — без уменьшения:
       # уменьшение до сотен пикселей снова делает номер нечитаемым.
-      # 1280 — компромисс: номер ещё читается, а ffmpeg на 1440p/4K
-      # не растёт до гигабайтов.
-      PLATE_FRAME_WIDTH_MAIN: "${AI_PLATE_WIDTH_MAIN:-1280}"
+      #
+      # 960 вместо 1280: у камеры .117 основной поток 2560x1440, и один
+      # такой ffmpeg держал 380 МБ — больше, чем все остальные процессы
+      # публикатора вместе. На 960 номер остаётся крупным (в зоне он
+      # занимает около 90 px против 120 на 1280), но декодер держит
+      # заметно меньше. Если OCR начнёт ошибаться — вернуть 1280.
+      PLATE_FRAME_WIDTH_MAIN: "${AI_PLATE_WIDTH_MAIN:-960}"
     volumes:
       # Часовой пояс хоста: в журналах и метках кадров нужен местный
       # время, а не UTC.
@@ -588,10 +659,21 @@ services:
   # выпускает scripts/turn-cert.sh, в том числе из интерфейса). Без
   # сертификата контейнер не поднимется, поэтому включать профиль нужно
   # после его выпуска.
+    healthcheck:
+      # Процесс публикатора — это python, а ffmpeg он запускает дочерними.
+      # kill -0 проверяет, что основной процесс жив: зависание с потерей
+      # NATS перезапуск вылечит, а «камера не отвечает» перезапуском не
+      # лечится и не должно выглядеть как падение контейнера.
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
   proxy:
     image: nginx:1.31.6-alpine
     profiles: ["tls"]
     restart: unless-stopped
+    logging: *default-logging
     # host-сеть: слушаем порт 443 напрямую и обращаемся к панели по
     # localhost. Через bridge пришлось бы пробрасывать порт и разбираться
     # с адресами docker-сети — здесь этого не нужно.

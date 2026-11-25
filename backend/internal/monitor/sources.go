@@ -43,6 +43,34 @@ func (s *CameraRepoSource) List(ctx context.Context) ([]Camera, error) {
 	return out, nil
 }
 
+// ACSRepoSource отдаёт контроллеры СКУД из репозитория.
+type ACSRepoSource struct {
+	repo *postgres.ACSRepo
+}
+
+func NewACSRepoSource(repo *postgres.ACSRepo) *ACSRepoSource {
+	return &ACSRepoSource{repo: repo}
+}
+
+// ListACS возвращает контроллеры в форме, нужной мониторингу.
+func (s *ACSRepoSource) ListACS(ctx context.Context) ([]ACSController, error) {
+	controllers, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]ACSController, 0, len(controllers))
+	for _, c := range controllers {
+		out = append(out, ACSController{
+			ID:     c.ID,
+			Name:   c.Name,
+			IP:     c.IP,
+			Status: c.Status,
+		})
+	}
+	return out, nil
+}
+
 // SettingsProvider отдаёт настройки системных уведомлений.
 type SettingsProvider struct {
 	repo *postgres.DetectionSettingsRepo

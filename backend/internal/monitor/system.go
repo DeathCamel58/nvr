@@ -342,6 +342,12 @@ func resolveEventType(key string) string {
 	if len(key) > 7 && key[:7] == "camera:" {
 		return domain.SystemTriggerCameraOnline
 	}
+	// У контроллера СКУД свой тип «снова на связи»: сводить его к
+	// событию камеры нельзя — оператор увидел бы «камера вернулась»
+	// о двери.
+	if len(key) > 4 && key[:4] == "acs:" {
+		return domain.SystemTriggerACSOnline
+	}
 	return key
 }
 

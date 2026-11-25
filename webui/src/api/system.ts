@@ -43,6 +43,11 @@ export const SYSTEM_EVENT_OPTIONS: { value: string }[] = [
   { value: 'system_disk' },
   { value: 'system_temperature' },
   { value: 'system_gpu' },
+  // СКУД: пропал или вернулся контроллер (домофон, Z5R, SKUD-01).
+  // Отдельные коды, а не «камера»: дверь и камера — разные устройства,
+  // и оператору важно видеть, что именно сломалось.
+  { value: 'system_acs_offline' },
+  { value: 'system_acs_online' },
 ]
 
 export const DEFAULT_SYSTEM: SystemConfig = {

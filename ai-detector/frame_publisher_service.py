@@ -376,7 +376,8 @@ class FramePublisher:
                  width: int, reload_every: float, ffmpeg_timeout: float,
                  plate_interval: float = 0.2, plate_width: int = 640,
                  plate_main_width: int = 0, snapshot_width: int = 1920,
-                 snapshot_parallel: int = 3, snapshot_timeout: float = 6.0):
+                 snapshot_parallel: int = 3, snapshot_timeout: float = 6.0,
+                 frame_parallel: int = 8):
         self.db_url = db_url
         self.nats_url = nats_url
         self.interval = interval
@@ -403,6 +404,18 @@ class FramePublisher:
         # Семафор создаётся при старте: до первого запуска цикла событий
         # asyncio.Semaphore() не привязан к loop.
         self.snapshot_sem: asyncio.Semaphore | None = None
+        # Предел одновременных захватов кадров детекции.
+        #
+        # Зачем. Каждый захват — отдельный ffmpeg, и он берёт около 50 МБ
+        # на время работы (в среднем 1,4 секунды на подключение к RTSP).
+        # Без предела 24 камеры запускали 24 процесса разом, и память
+        # контейнера упиралась в лимит: cgroup считает анонимную память
+        # всех детей плюс кеш, а не только сам Python (он занимает 68 МБ).
+        # Очередь разбирается по мере освобождения мест; кадр, который не
+        # успел сняться за интервал, просто пропускается — детекция идёт
+        # раз в секунду, и опоздавший кадр уже не нужен.
+        self.frame_parallel = max(1, frame_parallel)
+        self.frame_sem: asyncio.Semaphore | None = None
         # Быстрый поток для распознавания номеров: чаще и по зоне.
         self.plate_interval = plate_interval
         self.plate_width = plate_width
@@ -436,6 +449,7 @@ class FramePublisher:
         logger.info(f"подключился к NATS: {self.nats_url}")
 
         self.snapshot_sem = asyncio.Semaphore(self.snapshot_parallel)
+        self.frame_sem = asyncio.Semaphore(self.frame_parallel)
         snapshots = asyncio.create_task(self._snapshot_loop())
 
         await self.refresh_cameras()
@@ -700,7 +714,16 @@ class FramePublisher:
 
         while True:
             t0 = time.monotonic()
-            jpeg = await asyncio.to_thread(grab_frame, url, self.width, self.ffmpeg_timeout)
+            # Захват под общим семафором: одновременно декодируется не
+            # больше frame_parallel камер. Иначе 24 процесса разом занимают
+            # ~1,2 ГБ только на подключениях, и контейнер уходит в OOM.
+            if self.frame_sem is not None:
+                async with self.frame_sem:
+                    jpeg = await asyncio.to_thread(
+                        grab_frame, url, self.width, self.ffmpeg_timeout)
+            else:
+                jpeg = await asyncio.to_thread(
+                    grab_frame, url, self.width, self.ffmpeg_timeout)
 
             if jpeg:
                 payload = cam_id.encode().ljust(36) + jpeg
@@ -781,6 +804,7 @@ async def main():
         # не выбивает процессор: остальные запросы ждут в очереди.
         snapshot_width=int(os.getenv("SNAPSHOT_WIDTH", "1920")),
         snapshot_parallel=int(os.getenv("SNAPSHOT_PARALLEL", "3")),
+        frame_parallel=int(os.getenv("FRAME_PARALLEL", "8")),
         snapshot_timeout=float(os.getenv("SNAPSHOT_TIMEOUT", "6")),
     )
 

@@ -116,6 +116,9 @@ type Monitor struct {
 	system   SystemReader
 	hardware HardwareSource
 	reporter Reporter
+	// acs — источник контроллеров СКУД. nil означает проверку без СКУД:
+	// установка без домофонии работает как раньше.
+	acs ACSSource
 
 	interval time.Duration
 
@@ -136,6 +139,11 @@ type Monitor struct {
 	// Предыдущее состояние камер: нужно, чтобы отличить переход
 	// в офлайн от «камера и была офлайн».
 	lastCameraOnline map[uuid.UUID]bool
+
+	// То же для контроллеров СКУД: своя карта, потому что ключи и
+	// идентификаторы не пересекаются с камерами.
+	acsOfflineSince map[uuid.UUID]time.Time
+	lastACSOnline   map[uuid.UUID]bool
 }
 
 // activeIssue — состояние проблемы во внутренней памяти.
@@ -165,6 +173,8 @@ func NewMonitor(cameras CameraSource, settings SettingsSource, system SystemRead
 		active:           make(map[string]activeIssue),
 		offlineSince:     make(map[uuid.UUID]time.Time),
 		lastCameraOnline: make(map[uuid.UUID]bool),
+		acsOfflineSince:  make(map[uuid.UUID]time.Time),
+		lastACSOnline:    make(map[uuid.UUID]bool),
 	}
 }
 
@@ -210,6 +220,7 @@ func (m *Monitor) checkOnce(ctx context.Context) {
 	// включении все текущие проблемы пришли бы разом как новые.
 	m.checkSystem(settings)
 	m.checkCameras(ctx, settings)
+	m.checkACS(ctx, settings)
 
 	if m.hardware != nil {
 		m.checkHardware(ctx, settings)

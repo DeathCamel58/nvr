@@ -460,6 +460,11 @@ func (r *RecorderService) ArchiveStreams() []uuid.UUID {
 // его и закрывает предыдущий в момент перехода к следующему. Дополнительно
 // требуем, чтобы файл не менялся последние пять секунд: сразу после закрытия
 // ffmpeg ещё может дописывать служебные данные MP4.
+//
+// Свежесть mtime проверяем по одному правилу для всех файлов: попытка
+// «спасать» последний фрагмент по отдельному условию уже приводила к тому,
+// что живой файл забирали посреди записи — в архив уходили куски по 200 КБ
+// с пустым концом, а настоящая запись пропадала.
 func (r *RecorderService) TakeClosedChunks(cameraID uuid.UUID) []string {
 	dir := filepath.Join(r.ArchiveDir, cameraID.String())
 
@@ -471,6 +476,7 @@ func (r *RecorderService) TakeClosedChunks(cameraID uuid.UUID) []string {
 	type chunk struct {
 		name string
 		mod  time.Time
+		size int64
 	}
 	list := make([]chunk, 0, len(entries))
 	for _, entry := range entries {
@@ -484,7 +490,7 @@ func (r *RecorderService) TakeClosedChunks(cameraID uuid.UUID) []string {
 		if infoErr != nil {
 			continue
 		}
-		list = append(list, chunk{name: entry.Name(), mod: info.ModTime()})
+		list = append(list, chunk{name: entry.Name(), mod: info.ModTime(), size: info.Size()})
 	}
 	if len(list) < 2 {
 		return nil
@@ -497,10 +503,25 @@ func (r *RecorderService) TakeClosedChunks(cameraID uuid.UUID) []string {
 		if time.Since(c.mod) < 5*time.Second {
 			continue
 		}
+		// Совсем маленькие фрагменты — обрывок записи: ffmpeg не успел
+		// открыть файл или камера отдала единицы кадров. В архив такой
+		// файл не нужен: запись в базе без видео хуже, чем её отсутствие.
+		if c.size < minArchiveChunkBytes {
+			_ = os.Remove(filepath.Join(dir, c.name))
+			continue
+		}
 		out = append(out, filepath.Join(dir, c.name))
 	}
 	return out
 }
+
+// minArchiveChunkBytes — минимальный размер фрагмента, который идёт в архив.
+//
+// При записи в реальном времени 200 КБ — это доли секунды: такой файл
+// появляется, когда ffmpeg перезапустили или камера оборвала поток сразу
+// после открытия. Событийный клип может быть меньше, поэтому порог
+// применяется только к непрерывной записи.
+const minArchiveChunkBytes = 1 << 20 // 1 МиБ
 
 // PruneBuffer удаляет сегменты старше RetainSec — защита от переполнения диска.
 // Каталоги камер, для которых запись уже не идёт, удаляются целиком.
