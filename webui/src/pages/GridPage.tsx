@@ -51,6 +51,28 @@ const MAX_TILES = 36
  */
 const STORAGE_CAMERAS = 'grid.selectedCameras'
 const STORAGE_SIZE = 'grid.sizeIndex'
+// Выбранное качество по камерам. По умолчанию в сетке играет доп. поток:
+// он легче, и стена из основных потоков кладёт и сеть, и машину. Оператор
+// может вернуть основной поток конкретной камере — выбор запоминаем.
+const STORAGE_QUALITY = 'grid.streamQuality'
+
+type GridStream = 'main' | 'sub'
+
+function loadSavedQuality(): Record<string, GridStream> {
+  try {
+    const raw = localStorage.getItem(STORAGE_QUALITY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return {}
+    const out: Record<string, GridStream> = {}
+    for (const [id, v] of Object.entries(parsed)) {
+      if (v === 'main' || v === 'sub') out[id] = v
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
 
 function loadSavedCameras(): string[] {
   try {
@@ -93,6 +115,9 @@ export default function GridPage() {  const toast = useToast()
   const [loading, setLoading] = useState(true)
   const [gridIndex, setGridIndex] = useState(loadSavedSizeIndex)
   const [selected, setSelected] = useState<string[]>(loadSavedCameras)
+  // Какое качество выбрано для конкретной камеры (main/sub). Нет записи —
+  // играем доп. поток, если он у камеры есть.
+  const [quality, setQuality] = useState<Record<string, GridStream>>(loadSavedQuality)
   // Какая ячейка развёрнута. null означает, что разворота нет.
   const [expandedId, setExpandedId] = useState<string | null>(null)
   // Транспорт развёрнутого просмотра. От него зависит, можно ли рисовать
@@ -100,6 +125,9 @@ export default function GridPage() {  const toast = useToast()
   // «по последнему событию» оказалась бы впереди объекта.
   const [expandedTransport, setExpandedTransport] = useState<'webrtc' | 'mse' | null>(null)
   const [streams, setStreams] = useState<Record<string, StreamInfo>>({})
+  // Качество развёрнутого просмотра: null — «по умолчанию» (основной, если
+  // он есть). Сбрасывается при открытии другой камеры.
+  const [expandedStream, setExpandedStream] = useState<GridStream | null>(null)
   // Сколько плееров уже можно запускать: растёт по мере наполнения сетки.
   const [readyCount, setReadyCount] = useState(0)
 
@@ -124,6 +152,14 @@ export default function GridPage() {  const toast = useToast()
       // То же: сохранение необязательно.
     }
   }, [gridIndex])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_QUALITY, JSON.stringify(quality))
+    } catch {
+      // То же: сохранение необязательно.
+    }
+  }, [quality])
 
   useEffect(() => {
     let cancelled = false
@@ -261,6 +297,26 @@ export default function GridPage() {  const toast = useToast()
     [cameras, expandedId],
   )
 
+  // Развёрнутый просмотр по умолчанию играет основной поток (там важно
+  // качество), но у камеры без основного потока — дополнительный. Ручной
+  // выбор живёт до закрытия разворота: открыл заново — снова основной.
+  useEffect(() => {
+    setExpandedStream(null)
+  }, [expandedId])
+
+  const expStreams = expandedCamera ? streams[expandedCamera.id] : undefined
+  const expHasMain = Boolean(expStreams?.main_rtsp_url)
+  const expHasSub = Boolean(expStreams?.sub_rtsp_url)
+  const expCanSwitch = expHasMain && expHasSub
+  const expMode: GridStream =
+    expandedStream === 'sub' && expHasSub
+      ? 'sub'
+      : expandedStream === 'main' && expHasMain
+        ? 'main'
+        : expHasMain
+          ? 'main'
+          : 'sub'
+
   const isOnline = (c: Camera) => c.status === 'online'
 
   return (
@@ -317,9 +373,9 @@ export default function GridPage() {  const toast = useToast()
               borderRadius: 'var(--radius)', overflow: 'hidden', minHeight: 0,
             }}>
               <LivePlayer
-                key={`exp-${expandedCamera.id}`}
-                mseUrl={streams[expandedCamera.id]?.mse_url}
-                webrtcUrl={streams[expandedCamera.id]?.webrtc_url}
+                key={`exp-${expandedCamera.id}-${expMode}`}
+                mseUrl={expMode === 'sub' ? streams[expandedCamera.id]?.sub_mse_url : streams[expandedCamera.id]?.mse_url}
+                webrtcUrl={expMode === 'sub' ? streams[expandedCamera.id]?.sub_webrtc_url : streams[expandedCamera.id]?.webrtc_url}
                 muted={false}
                 showControls
                 onTransport={setExpandedTransport}
@@ -342,13 +398,42 @@ export default function GridPage() {  const toast = useToast()
                 }}>
                   {expandedCamera.name}
                 </span>
-                {/* Показываем, что идёт основной поток: в сетке был доп. */}
-                <span style={{
-                  background: 'rgba(47,129,247,0.9)', color: '#fff', padding: '3px 8px',
-                  borderRadius: 4, fontSize: 11, fontWeight: 600,
-                }}>
-                  MAIN
-                </span>
+                {/* Текущий поток развёрнутого просмотра. Клик меняет его,
+                    если у камеры есть оба; у одно-поточной камеры бейдж
+                    неактивен, как и в сетке. */}
+                <button
+                  type="button"
+                  disabled={!expCanSwitch}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (!expCanSwitch) return
+                    setExpandedStream(expMode === 'main' ? 'sub' : 'main')
+                  }}
+                  title={
+                    expCanSwitch
+                      ? expMode === 'main'
+                        ? t('gridPage.switchToSub')
+                        : t('gridPage.switchToMain')
+                      : expHasSub
+                        ? t('gridPage.noMainStream')
+                        : t('gridPage.noSubStream')
+                  }
+                  style={{
+                    background: expMode === 'sub'
+                      ? 'rgba(255,255,255,0.22)'
+                      : 'rgba(47,129,247,0.9)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: expCanSwitch ? 'pointer' : 'default',
+                    opacity: expCanSwitch ? 1 : 0.55,
+                  }}
+                >
+                  {expMode === 'sub' ? 'SUB' : 'MAIN'}
+                </button>
               </div>
               <button
                 className="btn btn-sm"
@@ -384,11 +469,6 @@ export default function GridPage() {  const toast = useToast()
                 const order = camera ? selectedCameras.findIndex((c) => c.id === camera.id) : -1
                 const canPlay = camera && order >= 0 && order < readyCount && isOnline(camera)
 
-                // Доп. поток есть только если у камеры задан sub-URL. Иначе
-                // go2rtc не регистрирует путь <id>_sub, и запрос к нему
-                // возвращает 404 «stream not found» — играем основной поток.
-                const hasSub = Boolean(camera && streams[camera.id]?.sub_rtsp_url)
-
                 if (!camera) {
                   return (
                     <div
@@ -408,6 +488,21 @@ export default function GridPage() {  const toast = useToast()
                   )
                 }
 
+                // Доп. поток есть только если у камеры задан sub-URL. Иначе
+                // go2rtc не регистрирует путь <id>_sub, и запрос к нему
+                // возвращает 404 «stream not found» — играем основной поток.
+                const hasSub = Boolean(streams[camera.id]?.sub_rtsp_url)
+                // Основного может не быть: у камеры бывает только доп. поток.
+                const hasMain = Boolean(streams[camera.id]?.main_rtsp_url)
+                // По умолчанию — доп. поток (легче). Оператор может вернуть
+                // этой камере основной; выбор хранится в localStorage.
+                // Если основного нет — выбор игнорируется, играем доп.
+                const wanted: GridStream = quality[camera.id] === 'main' ? 'main' : 'sub'
+                const streamMode: GridStream =
+                  wanted === 'main' && hasMain ? 'main' : hasSub ? 'sub' : 'main'
+                // Переключать есть что только когда у камеры оба потока.
+                const canSwitch = hasSub && hasMain
+
                 return (
                   <div
                     key={camera.id}
@@ -420,18 +515,21 @@ export default function GridPage() {  const toast = useToast()
                   >
                     {canPlay ? (
                       /*
-                       * В ячейке играет ДОПОЛНИТЕЛЬНЫЙ поток.
+                       * В ячейке играет ДОПОЛНИТЕЛЬНЫЙ поток, если он есть.
                        *
                        * Он легче: меньше разрешение и битрейт. На 16-25
                        * ячейках это принципиально — основной поток в
                        * каждой из них положил бы и сеть, и машину.
+                       * У камеры без доп. потока играем основной: путь
+                       * <id>_sub в go2rtc не существует, и запрос к нему
+                       * вернул бы 404 вместо картинки.
                        */
                       <LivePlayer
-                        key={`${camera.id}-${hasSub ? 'sub' : 'main'}`}
-                        mseUrl={hasSub ? streams[camera.id]?.sub_mse_url : streams[camera.id]?.mse_url}
+                        key={`${camera.id}-${streamMode}`}
+                        mseUrl={streamMode === 'sub' ? streams[camera.id]?.sub_mse_url : streams[camera.id]?.mse_url}
                         // WebRTC — запасной путь: если MSE в ячейке не поднялся,
                         // плеер перейдёт на него (или наоборот — порядок задаёт preferMse).
-                        webrtcUrl={hasSub ? streams[camera.id]?.sub_webrtc_url : streams[camera.id]?.webrtc_url}
+                        webrtcUrl={streamMode === 'sub' ? streams[camera.id]?.sub_webrtc_url : streams[camera.id]?.webrtc_url}
                         // В сетке WebRTC не первым (preferMse): десятки
                         // соединений с ICE/DTLS перегрузят канал, а в мелкой
                         // ячейке разницы в задержке не видно.
@@ -467,18 +565,49 @@ export default function GridPage() {  const toast = useToast()
                       }}>
                         {camera.name}
                       </span>
-                      {/* Пометка SUB: оператор видит, что поток облегчённый.
-                          У камеры без доп. потока пометки нет — иначе она
-                          обещала бы качество, которого нет. */}
-                      {hasSub && (
-                        <span style={{
-                          background: 'rgba(255,255,255,0.18)', color: '#fff',
-                          padding: '1px 5px', borderRadius: 3, fontSize: 9,
-                          fontWeight: 700, letterSpacing: 0.4, flexShrink: 0,
-                        }}>
-                          SUB
-                        </span>
-                      )}
+                      {/* Переключатель качества: MAIN/SUB по текущему потоку.
+                          Клик меняет поток этой камеры; если у камеры только
+                          один поток, кнопка неактивна и объясняет почему. */}
+                      <button
+                        type="button"
+                        disabled={!canSwitch}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!canSwitch || !camera) return
+                          setQuality((q) => ({
+                            ...q,
+                            [camera.id]: streamMode === 'sub' ? 'main' : 'sub',
+                          }))
+                        }}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                        title={
+                          canSwitch
+                            ? streamMode === 'sub'
+                              ? t('gridPage.switchToMain')
+                              : t('gridPage.switchToSub')
+                            : hasSub
+                              ? t('gridPage.noMainStream')
+                              : t('gridPage.noSubStream')
+                        }
+                        style={{
+                          background: streamMode === 'sub'
+                            ? 'rgba(255,255,255,0.18)'
+                            : 'rgba(47,129,247,0.9)',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '1px 5px',
+                          borderRadius: 3,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: 0.4,
+                          flexShrink: 0,
+                          pointerEvents: 'auto',
+                          cursor: canSwitch ? 'pointer' : 'default',
+                          opacity: canSwitch ? 1 : 0.55,
+                        }}
+                      >
+                        {streamMode === 'sub' ? 'SUB' : 'MAIN'}
+                      </button>
                     </div>
 
                     {/* Кнопка разворота */}
