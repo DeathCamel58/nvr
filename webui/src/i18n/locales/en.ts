@@ -1835,6 +1835,7 @@ export default {
     subtitle: 'Search recordings by calendar and timeline, watch up to {{count}} cameras at once',
     calendarFailed: 'Could not fetch the recordings calendar',
     limitReached: 'You can watch at most {{count}} cameras at once',
+    retry: 'Retry',
     noFile: 'The recording has no file — export is impossible',
 
     tracks: 'Tracks ({{selected}}/{{max}}):',

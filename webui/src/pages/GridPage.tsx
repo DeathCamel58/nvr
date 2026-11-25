@@ -4,7 +4,7 @@ import { camerasAPI, type Camera, type StreamInfo } from '../api/client'
 import LivePlayer from '../components/LivePlayer'
 import DetectionOverlay from '../components/DetectionOverlay'
 import { useToast } from '../context/ToastContext'
-import { LayoutGrid, X, Maximize2, Minimize2, Check, Loader2 } from 'lucide-react'
+import { LayoutGrid, X, Maximize2, Minimize2, Check, Loader2, RefreshCw } from 'lucide-react'
 
 /**
  * Размеры сетки. Пользователь выбирает вручную.
@@ -91,6 +91,11 @@ export default function GridPage() {  const toast = useToast()
 
   const [cameras, setCameras] = useState<Camera[]>([])
   const [loading, setLoading] = useState(true)
+  // Ошибка загрузки списка камер. Показываем её в панели вместе с кнопкой
+  // «Повторить»: пустой список и вечная «Загрузка…» неотличимы от сбоя.
+  const [loadError, setLoadError] = useState(false)
+  // Меняется кнопкой «Повторить» — перезапускает эффект загрузки.
+  const [reloadKey, setReloadKey] = useState(0)
   const [gridIndex, setGridIndex] = useState(loadSavedSizeIndex)
   const [selected, setSelected] = useState<string[]>(loadSavedCameras)
   // Какая ячейка развёрнута. null означает, что разворота нет.
@@ -130,6 +135,7 @@ export default function GridPage() {  const toast = useToast()
 
     const load = async () => {
       setLoading(true)
+      setLoadError(false)
       try {
         const res = await camerasAPI.list()
         if (cancelled) return
@@ -145,7 +151,10 @@ export default function GridPage() {  const toast = useToast()
           return filtered.length === prev.length ? prev : filtered
         })
       } catch {
-        if (!cancelled) toast.error(t('gridPage.loadFailed'))
+        if (!cancelled) {
+          setLoadError(true)
+          toast.error(t('gridPage.loadFailed'))
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -153,7 +162,7 @@ export default function GridPage() {  const toast = useToast()
 
     load()
     return () => { cancelled = true }
-  }, [toast])
+  }, [toast, t, reloadKey])
 
   // Камеры, выбранные для показа. Порядок сохраняем тот, в котором их
   // отметили: оператор расставляет важные камеры первыми, и после
@@ -512,6 +521,18 @@ export default function GridPage() {  const toast = useToast()
             {loading ? (
               <div style={{ padding: 12, color: 'var(--text-secondary)', fontSize: 13 }}>
                 {t('gridPage.loading')}
+              </div>
+            ) : loadError ? (
+              <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ color: 'var(--danger-text)', fontSize: 13 }}>
+                  {t('gridPage.loadFailed')}
+                </div>
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setReloadKey((k) => k + 1)}
+                >
+                  <RefreshCw size={13} /> {t('gridPage.retry')}
+                </button>
               </div>
             ) : cameras.length === 0 ? (
               <div style={{ padding: 12, color: 'var(--text-secondary)', fontSize: 13 }}>
